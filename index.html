@@ -1,0 +1,1440 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sparkle Smile</title>
+<meta name="description" content="A 3D tooth-brushing game for young kids: brush food off the teeth before the germs dig holes.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Cpath d='M18 20 Q18 8 30 8 Q40 11 50 8 Q62 8 62 20 L60 46 Q58 70 50 70 Q45 70 44 60 Q40 52 36 60 Q35 70 30 70 Q22 70 20 46 Z' fill='%23fff5e6' stroke='%231c0914' stroke-width='4'/%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1c0914">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    color-scheme: dark;
+    --ink:#1c0914;
+    --plum:#34102b;
+    --plum-2:#4b1b3e;
+    --cream:#fff5e6;
+    --cream-dim:#ead7ca;
+    --mint:#52e3b8;
+    --mint-deep:#13916d;
+    --candy:#ff5d9e;
+    --sun:#ffc94d;
+    --germ:#86d23c;
+    --warn:#f2cf6b;
+    --bad:#b0733f;
+    --dead:#5a4438;
+    --shield:#6ff4ff;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  body{
+    margin:0;position:fixed;inset:0;
+    background:var(--ink);color:var(--cream);
+    font-family:"Baloo 2","Trebuchet MS","Segoe UI",system-ui,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+    -webkit-tap-highlight-color:transparent;touch-action:none;
+  }
+  #game{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+  body.playing #game{cursor:none}
+  button{font:inherit;color:inherit;touch-action:manipulation}
+  button:focus-visible{outline:4px solid var(--sun);outline-offset:4px}
+
+  /* ---------- HUD ---------- */
+  .topbar{
+    position:fixed;left:0;right:0;top:0;z-index:5;
+    padding:calc(env(safe-area-inset-top,0px) + 10px) calc(env(safe-area-inset-right,0px) + 16px) 0 calc(env(safe-area-inset-left,0px) + 16px);
+    display:flex;align-items:center;gap:12px;pointer-events:none;
+  }
+  .panel{background:rgba(28,9,20,.74);border:2px solid rgba(255,245,230,.18);border-radius:14px}
+  .pips{display:grid;grid-template-columns:repeat(6,16px);gap:3px 4px;padding:6px 9px}
+  .pip{width:16px;height:16px;position:relative;color:var(--cream);transition:color .3s}
+  .pip svg{width:100%;height:100%;display:block;fill:currentColor}
+  .pip.warn{color:var(--warn)} .pip.bad{color:var(--bad)} .pip.dead{color:var(--dead);opacity:.35}
+  .foods{display:flex;justify-content:center;flex-wrap:wrap;gap:8px 18px;margin:0;font-weight:700;font-size:17px;line-height:1.1}
+  .foods span{display:inline-flex;align-items:center;gap:6px}
+  .foods svg{width:30px;height:30px;flex:none}
+  .foods .bad{color:var(--candy)} .foods .good{color:var(--mint)}
+  .pip.shield::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:2px solid var(--shield);box-shadow:0 0 6px var(--shield)}
+  .pip.germ::before{content:"";position:absolute;right:-3px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--germ);box-shadow:0 0 0 2px var(--ink);z-index:1}
+  .timer{flex:1;min-width:0;max-width:520px;margin-inline:auto;display:flex;align-items:center;gap:6px}
+  .track{position:relative;flex:1;height:20px;border-radius:99px}
+  .fill{position:absolute;left:3px;top:3px;bottom:3px;width:0;border-radius:99px;background:linear-gradient(90deg,var(--mint-deep),var(--mint))}
+  .rider{position:absolute;top:50%;left:0;width:30px;height:30px;transform:translate(-50%,-50%);filter:drop-shadow(0 2px 0 rgba(0,0,0,.35))}
+  .rider svg,.goal svg{width:100%;height:100%;display:block}
+  .goal{width:30px;height:30px;flex:none}
+  .iconbtn{
+    pointer-events:auto;flex:none;width:48px;height:48px;border-radius:50%;
+    display:grid;place-items:center;cursor:pointer;padding:0;
+  }
+  .iconbtn svg{width:26px;height:26px;fill:var(--cream)}
+  #muteBtn{position:fixed;z-index:6;right:calc(env(safe-area-inset-right,0px) + 16px);top:calc(env(safe-area-inset-top,0px) + 10px)}
+  .topbar .spacer{width:48px;flex:none}
+
+  .tube{
+    position:fixed;z-index:5;
+    left:calc(env(safe-area-inset-left,0px) + 16px);
+    bottom:calc(env(safe-area-inset-bottom,0px) + 16px);
+    width:118px;padding:8px 10px 10px;border-radius:22px;cursor:pointer;
+    display:grid;gap:5px;justify-items:center;
+  }
+  .tube svg{width:100%;height:auto;display:block;transform-origin:70% 50%}
+  .tube .level{width:100%;height:10px;border-radius:99px;background:rgba(255,245,230,.15);overflow:hidden}
+  .tube .level i{display:block;height:100%;width:100%;background:var(--mint);border-radius:inherit}
+  .tube.low{border-color:var(--sun);animation:wiggle 1s ease-in-out infinite}
+  .tube.empty .level i{background:var(--candy)}
+  .tube.squeeze svg{animation:squeeze .45s ease}
+  .tube .tap{position:absolute;right:-14px;top:-30px;width:42px;height:42px;display:none;animation:bob .8s ease-in-out infinite}
+  .tube.low .tap{display:block}
+  @keyframes wiggle{0%,100%{transform:rotate(0)}20%{transform:rotate(-5deg)}40%{transform:rotate(4deg)}60%{transform:rotate(-2deg)}}
+  @keyframes squeeze{0%{transform:scale(1)}40%{transform:scale(1.12,.7)}100%{transform:scale(1)}}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}
+
+  /* ---------- overlays ---------- */
+  .overlay{
+    position:fixed;inset:0;z-index:10;display:grid;place-items:center;
+    padding:calc(env(safe-area-inset-top,0px) + 16px) calc(env(safe-area-inset-right,0px) + 16px) calc(env(safe-area-inset-bottom,0px) + 16px) calc(env(safe-area-inset-left,0px) + 16px);
+    background:radial-gradient(ellipse at center,rgba(28,9,20,.30),rgba(28,9,20,.86));
+    overflow:auto;touch-action:pan-y;
+  }
+  .card{
+    width:100%;max-width:600px;background:var(--plum);
+    border:4px solid var(--cream);border-radius:32px;padding:26px 26px 22px;
+    box-shadow:0 10px 0 var(--ink),0 24px 60px rgba(0,0,0,.5);
+    text-align:center;display:grid;gap:16px;
+  }
+  h1,h2{margin:0;font-weight:800;line-height:.95;text-wrap:balance;text-shadow:0 5px 0 var(--mint-deep)}
+  h1{font-size:clamp(46px,11vw,78px);letter-spacing:-.01em}
+  h1 span{color:var(--mint)}
+  h2{font-size:clamp(38px,9vw,60px)}
+  .tag{margin:0;font-size:clamp(19px,4.4vw,24px);font-weight:700;line-height:1.2;color:var(--cream-dim);text-wrap:balance}
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0;padding:0;list-style:none}
+  .steps li{background:var(--plum-2);border-radius:20px;padding:10px 6px 9px;display:grid;gap:2px;justify-items:center;font-weight:700;font-size:17px;line-height:1.1}
+  .steps svg{width:70px;height:70px}
+  .play{
+    justify-self:center;font-weight:800;font-size:30px;line-height:1;
+    padding:14px 44px 12px;border-radius:99px;border:0;cursor:pointer;
+    background:var(--mint);color:var(--ink);box-shadow:0 7px 0 var(--mint-deep);
+    display:inline-flex;gap:12px;align-items:center;
+  }
+  .play svg{width:24px;height:24px;fill:var(--ink)}
+  .play:active{transform:translateY(5px);box-shadow:0 2px 0 var(--mint-deep)}
+  .grown{margin:0;font-size:15px;line-height:1.45;color:var(--cream-dim);max-width:60ch;justify-self:center;font-weight:600;text-wrap:pretty}
+  .grown strong{color:var(--cream)}
+  .rotate{display:none;margin:0;font-size:15px;font-weight:700;color:var(--sun)}
+  @media (orientation:portrait) and (max-width:600px){ .rotate{display:block} }
+  .stars{display:flex;justify-content:center;gap:10px}
+  .stars svg{width:clamp(56px,16vw,78px);height:auto}
+  .stars .on{fill:var(--sun);animation:pop .5s cubic-bezier(.3,1.6,.5,1) backwards}
+  .stars .on:nth-child(2){animation-delay:.25s} .stars .on:nth-child(3){animation-delay:.5s}
+  .stars .off{fill:rgba(255,245,230,.14)}
+  @keyframes pop{from{transform:scale(0) rotate(-40deg)}}
+  .stats{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+  .stat{background:var(--plum-2);border-radius:18px;padding:8px 16px 6px;display:grid;font-weight:700;min-width:120px}
+  .stat b{font-size:32px;line-height:1;font-variant-numeric:tabular-nums}
+  .stat span{font-size:13px;color:var(--cream-dim);letter-spacing:.06em;text-transform:uppercase}
+  .err{margin:0;color:var(--sun);font-weight:700}
+
+  @media (max-width:480px){
+    .card{padding:20px 16px 18px;border-radius:26px;gap:13px}
+    .steps li{font-size:15px}
+    .steps svg{width:52px;height:52px}
+    .play{font-size:26px;padding:13px 36px 11px}
+  }
+  @media (max-height:520px){
+    .card{gap:9px;padding:14px 20px}
+    h1{font-size:44px} h2{font-size:36px}
+    .steps svg{width:44px;height:44px}
+    .grown{font-size:13px}
+    .stars svg{width:52px}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <path id="toothShape" d="M18 20 Q18 8 30 8 Q40 11 50 8 Q62 8 62 20 L60 46 Q58 70 50 70 Q45 70 44 60 Q40 52 36 60 Q35 70 30 70 Q22 70 20 46 Z"/>
+    <path id="starShape" d="M40 5 L50 29 L76 31 L56 48 L62 74 L40 60 L18 74 L24 48 L4 31 L30 29 Z"/>
+  </defs>
+</svg>
+
+<canvas id="game"></canvas>
+
+<div id="hud" hidden>
+  <div class="topbar">
+    <div id="pips" class="pips panel" aria-label="How the teeth are doing"></div>
+    <div class="timer" aria-label="Time left">
+      <div class="track panel"><div id="timeFill" class="fill"></div>
+        <div id="rider" class="rider"><svg viewBox="0 0 80 80"><use href="#toothShape" fill="#fff5e6" stroke="#1c0914" stroke-width="5"/><circle cx="33" cy="32" r="4" fill="#1c0914"/><circle cx="47" cy="32" r="4" fill="#1c0914"/><path d="M33 42 Q40 50 47 42" stroke="#1c0914" stroke-width="4" fill="none" stroke-linecap="round"/></svg></div>
+      </div>
+      <div class="goal"><svg viewBox="0 0 80 80"><use href="#starShape" fill="#ffc94d" stroke="#1c0914" stroke-width="4"/></svg></div>
+    </div>
+    <div class="spacer"></div>
+  </div>
+  <button id="tubeBtn" class="tube panel" aria-label="Add toothpaste">
+    <svg viewBox="0 0 120 56" aria-hidden="true">
+      <g transform="rotate(-8 60 28)">
+        <path d="M8 14 h10 v28 h-10 z" fill="#d7c9d6"/>
+        <path d="M11 14 v28 M15 14 v28" stroke="#a894a6" stroke-width="1.5"/>
+        <path d="M18 12 Q60 8 86 16 L96 22 V34 L86 40 Q60 48 18 44 Z" fill="#fff5e6"/>
+        <path d="M24 22 Q56 19 84 24 V32 Q56 37 24 34 Z" fill="#52e3b8"/>
+        <path d="M40 24 q4 4 0 8 M52 24 q4 4 0 8" stroke="#fff5e6" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <rect x="96" y="19" width="16" height="18" rx="4" fill="#3aa0ff"/>
+        <path d="M100 19 v18 M104 19 v18 M108 19 v18" stroke="#2a7fd0" stroke-width="1.5"/>
+      </g>
+    </svg>
+    <span class="level"><i id="pasteFill"></i></span>
+    <svg class="tap" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 38 L6 20 H14 V3 H26 V20 H34 Z" fill="#ffc94d" stroke="#1c0914" stroke-width="3" stroke-linejoin="round"/></svg>
+  </button>
+</div>
+
+<button id="muteBtn" class="iconbtn panel" aria-label="Sound on" aria-pressed="false">
+  <svg id="soundOn" viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>
+  <svg id="soundOff" viewBox="0 0 24 24" hidden><path d="M3 9v6h4l5 4V5L7 9H3zm13.6 3 2.7-2.7-1.4-1.4-2.7 2.7-2.7-2.7-1.4 1.4 2.7 2.7-2.7 2.7 1.4 1.4 2.7-2.7 2.7 2.7 1.4-1.4z"/></svg>
+</button>
+
+<div id="menu" class="overlay">
+  <div class="card">
+    <h1>Sparkle <span>Smile</span></h1>
+    <p class="tag">Brush the food off the teeth before the germs eat it!</p>
+    <ol class="steps">
+      <li>
+        <svg viewBox="0 0 80 80" aria-hidden="true"><use href="#toothShape" fill="#fff5e6"/><circle cx="29" cy="24" r="8" fill="#ff5d9e"/><rect x="43" y="36" width="13" height="10" rx="3" fill="#7a4424"/><circle cx="34" cy="37" r="3" fill="#1c0914"/><circle cx="45" cy="30" r="3" fill="#1c0914"/><circle cx="40" cy="47" r="3.5" fill="#1c0914"/></svg>
+        Food sticks
+      </li>
+      <li>
+        <svg viewBox="0 0 80 80" aria-hidden="true"><use href="#toothShape" fill="#fff5e6"/><path d="M8 58 l10 -8 l6 8 l10 -8 l6 8" stroke="#52e3b8" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><g transform="rotate(-22 50 34)"><rect x="30" y="30" width="46" height="8" rx="4" fill="#ff8a3d"/><rect x="26" y="22" width="20" height="8" rx="2" fill="#ffffff" stroke="#9fe9ff" stroke-width="2"/></g><circle cx="22" cy="18" r="4" fill="#ffffff" opacity=".85"/><circle cx="14" cy="30" r="3" fill="#ffffff" opacity=".85"/></svg>
+        Scrub it off
+      </li>
+      <li>
+        <svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="34" fill="rgba(111,244,255,.16)" stroke="#6ff4ff" stroke-width="4"/><g transform="translate(12 10) scale(.7)"><use href="#toothShape" fill="#fff5e6"/></g><circle cx="35" cy="33" r="2.5" fill="#1c0914"/><circle cx="45" cy="33" r="2.5" fill="#1c0914"/><path d="M35 40 Q40 45 45 40" stroke="#1c0914" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M64 10 l2 6 6 2 -6 2 -2 6 -2 -6 -6 -2 6 -2z" fill="#ffc94d"/></svg>
+        Shield on!
+      </li>
+    </ol>
+    <p class="foods">
+      <span class="bad"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M6 14 L12 20 L6 26 Z M34 14 L28 20 L34 26 Z" fill="#ff5d9e"/><circle cx="20" cy="20" r="9" fill="#ff5d9e"/><path d="M14 16 Q20 22 26 16" stroke="#fff5e6" stroke-width="3" fill="none"/></svg>Sweets bring lots of germs</span>
+      <span class="good"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M10 30 L28 12 L32 16 Z" fill="#ff8c1a"/><path d="M29 11 l4 -7 M30 12 l8 -3 M31 13 l6 2" stroke="#3cb54a" stroke-width="3" stroke-linecap="round"/></svg>Veggies bring a few</span>
+    </p>
+    <button id="playBtn" class="play"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4l14 8-14 8z"/></svg>Play</button>
+    <p class="rotate">Turn the phone sideways for bigger teeth.</p>
+    <p class="grown"><strong>For grown-ups:</strong> drag a finger (or move the mouse) back and forth over a tooth to brush it. Clean teeth get a bubble shield for a while, and germs can't touch them. A clean, shielded tooth slowly heals and its holes fill back in. Sweets (candy, gummies, chocolate) are the worst: they stick hardest, call germs fastest and cause the most damage. Cookies are in the middle; apples, carrots, broccoli and cheese bring only a germ or two. A tooth that gets too many holes falls out. Tap the tube when the toothpaste runs low. One round lasts 2 minutes, like real brushing. On iPhone, flip the silent switch off to hear the sounds.</p>
+    <p id="err" class="err" hidden>The 3D engine didn't load. Check the internet connection and reload the page.</p>
+  </div>
+</div>
+
+<div id="end" class="overlay" hidden>
+  <div class="card">
+    <h2 id="endTitle">Great brushing!</h2>
+    <div id="stars" class="stars"></div>
+    <div class="stats">
+      <div class="stat"><b id="statTeeth">12</b><span>Happy teeth</span></div>
+      <div class="stat"><b id="statGerms">0</b><span>Germs zapped</span></div>
+      <div class="stat"><b id="statFood">0</b><span>Food cleaned</span></div>
+    </div>
+    <button id="againBtn" class="play"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/></svg>Again</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  if (!window.THREE) { $('err').hidden = false; $('playBtn').disabled = true; return; }
+
+  const V3 = THREE.Vector3, Mesh = THREE.Mesh, Group = THREE.Group;
+  const DEG = Math.PI / 180;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+  /* ---------------- tuning ---------------- */
+  const ROUND_TIME = 120;       // seconds, like real brushing
+  const SHIELD_TIME = 12;       // seconds of protection after a clean brush
+  const MAX_FOOD = 3, MAX_GERMS = 3;
+  const HEAL_RATE = 3;          // health per second while a clean tooth is shielded
+  const GERM_HP = 0.45, BRUSH_POWER = 1.6, PASTE_USE = 6;
+
+  /* ---------------- renderer ---------------- */
+  const canvas = $('game');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.autoClear = false;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x3a0d1f);
+  scene.fog = new THREE.Fog(0x3a0d1f, 8, 17);
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.05, 60);
+  const camBase = new V3(0, 0.05, 1.9);
+  const LOOK = new V3(0, -0.05, -3);
+
+  const gradTex = new THREE.DataTexture(new Uint8Array([115, 115, 115, 255, 190, 190, 190, 255, 255, 255, 255, 255]), 3, 1, THREE.RGBAFormat);
+  gradTex.minFilter = gradTex.magFilter = THREE.NearestFilter;
+  gradTex.generateMipmaps = false; gradTex.needsUpdate = true;
+  const toon = (color, extra) => new THREE.MeshToonMaterial(Object.assign({ color, gradientMap: gradTex }, extra || {}));
+  const matCache = {};
+  const tm = (c) => matCache[c] || (matCache[c] = toon(c));
+  const basic = (c) => new THREE.MeshBasicMaterial({ color: c });
+
+  scene.add(new THREE.HemisphereLight(0xfff0f4, 0x7a2440, 0.55));
+  const keyL = new THREE.DirectionalLight(0xffffff, 0.55); keyL.position.set(0.8, 2, 3); scene.add(keyL);
+  const fillL = new THREE.PointLight(0xffe0c0, 0.3, 12); fillL.position.set(0, 0.2, 0.8); scene.add(fillL);
+
+  /* ---------------- the mouth ---------------- */
+  const RX = 2.5, RZ = 2.6, CZ = -1.2, BASE_Y = 1.38;
+  const archPos = (a, y) => new V3(Math.sin(a) * RX, y, CZ - Math.cos(a) * RZ);
+
+  const cavity = new Mesh(new THREE.SphereGeometry(1, 48, 32), toon(0x8e2a47, { side: THREE.BackSide }));
+  cavity.scale.set(5.6, 3.4, 8); cavity.position.set(0, 0, -1.2); scene.add(cavity);
+
+  // the two jaws move apart when food is coming and chomp shut when it lands
+  const upperJaw = new Group(), lowerJaw = new Group();
+  scene.add(upperJaw, lowerJaw);
+
+  // tongue: a sphere reshaped every frame into a tongue that sways and ripples
+  const tongueGeo = new THREE.SphereGeometry(1, 56, 36);
+  tongueGeo.rotateX(Math.PI / 2);                     // poles at the tip and the root
+  const tongueBase = Float32Array.from(tongueGeo.attributes.position.array);
+  {
+    const n = tongueGeo.attributes.position.count, col = new Float32Array(n * 3);
+    const top = new THREE.Color(0xf27d98), side = new THREE.Color(0xd24a6a), groove = new THREE.Color(0xc23e60), c = new THREE.Color();
+    for (let i = 0; i < n; i++) {
+      const x = tongueBase[i * 3], y = tongueBase[i * 3 + 1];
+      c.copy(side).lerp(top, clamp(y * 1.6, 0, 1));
+      if (y > 0) c.lerp(groove, Math.exp(-(x * x) / 0.012) * 0.8);
+      col.set([c.r, c.g, c.b], i * 3);
+    }
+    tongueGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  }
+  const tongue = new Mesh(tongueGeo, toon(0xffffff, { vertexColors: true }));
+  tongue.position.set(0, -1.34, -0.85);
+  lowerJaw.add(tongue);
+  let tongueLick = 0;
+  function shapeTongue(time) {
+    const pos = tongueGeo.attributes.position, b = tongueBase;
+    const sway = Math.sin(time * 0.8) * 0.2 + Math.sin(time * 2.1) * 0.05;
+    const lift = tongueLick * 0.4;
+    for (let i = 0; i < pos.count; i++) {
+      const x = b[i * 3], y = b[i * 3 + 1], z = b[i * 3 + 2];
+      const along = (z + 1) / 2;                     // 0 at the tip (towards the lips), 1 at the root
+      const tipK = (1 - along) * (1 - along);
+      let X = x * 1.75 * (0.5 + 0.5 * Math.sqrt(along));   // narrow rounded tip, wide root
+      let Y = y > 0 ? y * 0.42 : y * 0.75;
+      if (y > 0) Y -= 0.07 * Math.exp(-(X * X) / 0.06) * (0.4 + 0.6 * along);   // groove down the middle
+      const Z = z < 0 ? z * 2.65 : z * 5.5;           // root runs back past the camera
+      Y += 0.045 * Math.sin(Z * 1.7 - time * 2.4) * (0.35 + 0.65 * tipK) + lift * tipK;
+      X += sway * tipK;
+      pos.setXYZ(i, X, Y, Z);
+    }
+    pos.needsUpdate = true;
+    tongueGeo.computeVertexNormals();
+  }
+  shapeTongue(0);
+
+  const gumMat = toon(0xf28aa3);
+  for (const y of [-BASE_Y, BASE_Y]) {
+    const jaw = y < 0 ? lowerJaw : upperJaw;
+    const pts = [];
+    for (let i = 0; i <= 24; i++) pts.push(archPos(lerp(-90 * DEG, 90 * DEG, i / 24), y + (y < 0 ? 0.03 : -0.03)));
+    const curve = new THREE.CatmullRomCurve3(pts);
+    jaw.add(new Mesh(new THREE.TubeGeometry(curve, 90, 0.34, 16, false), gumMat));
+    for (const e of [0, 1]) { const cap = new Mesh(new THREE.SphereGeometry(0.34, 16, 12), gumMat); cap.position.copy(curve.getPoint(e)); jaw.add(cap); }
+  }
+
+  // the way out: a wide, lip-shaped opening with daylight behind it
+  const LIP_W = 2.35, LIP_OUT = LIP_W + 0.4;           // half-widths of the opening and of the lips
+  const bell = (x, w, p) => Math.pow(Math.max(0, 1 - (x / w) * (x / w)), p);
+  const openTop = (x) => 0.6 * bell(x, LIP_W, 0.7);
+  const openBot = (x) => -0.66 * bell(x, LIP_W, 0.7);
+  // upper lip gets a cupid's bow (two bumps, a dip in the middle); lower lip is fuller
+  const upperOut = (x) => openTop(x) + 0.3 * bell(x, LIP_OUT, 0.55)
+    + 0.2 * Math.exp(-Math.pow((Math.abs(x) - 0.5) / 0.32, 2)) - 0.12 * Math.exp(-Math.pow(x / 0.18, 2));
+  const lowerOut = (x) => openBot(x) - 0.46 * bell(x, LIP_OUT, 0.6);
+  function openingPoints(sx, sy) {
+    const pts = [], N = 48;
+    for (let i = 0; i <= N; i++) { const x = lerp(-LIP_W, LIP_W, i / N); pts.push(new THREE.Vector2(x * sx, openTop(x) * sy)); }
+    for (let i = N - 1; i > 0; i--) { const x = lerp(-LIP_W, LIP_W, i / N); pts.push(new THREE.Vector2(x * sx, openBot(x) * sy)); }
+    return pts;
+  }
+  const lipPts = [], LN = 72;
+  for (let i = 0; i <= LN; i++) { const x = lerp(-LIP_OUT, LIP_OUT, i / LN); lipPts.push(new THREE.Vector2(x, Math.max(0, upperOut(x)))); }
+  for (let i = LN - 1; i > 0; i--) { const x = lerp(-LIP_OUT, LIP_OUT, i / LN); lipPts.push(new THREE.Vector2(x, Math.min(0, lowerOut(x)))); }
+  const lipShape = new THREE.Shape(lipPts);
+  lipShape.holes.push(new THREE.Path(openingPoints(1.05, 1.13)));
+  const lips = new Mesh(new THREE.ExtrudeGeometry(lipShape, {
+    depth: 0.14, steps: 1, curveSegments: 4, bevelEnabled: true, bevelThickness: 0.17, bevelSize: 0.1, bevelSegments: 5
+  }), toon(0xe0506a));
+  const lipsGroup = new Group(); scene.add(lipsGroup);
+  lips.position.set(0, 0, -4.86); lipsGroup.add(lips);
+
+  const wallShape = new THREE.Shape([new THREE.Vector2(-9, -6), new THREE.Vector2(9, -6), new THREE.Vector2(9, 6), new THREE.Vector2(-9, 6)]);
+  wallShape.holes.push(new THREE.Path(openingPoints(1, 1)));
+  const wall = new Mesh(new THREE.ShapeGeometry(wallShape, 4), toon(0x7a2340, { side: THREE.DoubleSide }));
+  wall.position.set(0, 0, -4.9); lipsGroup.add(wall);
+
+  const skyCv = document.createElement('canvas'); skyCv.width = 8; skyCv.height = 128;
+  const sg = skyCv.getContext('2d'); const grd = sg.createLinearGradient(0, 0, 0, 128);
+  grd.addColorStop(0, '#8fd3ff'); grd.addColorStop(0.55, '#dbf2ff'); grd.addColorStop(1, '#fff1c4');
+  sg.fillStyle = grd; sg.fillRect(0, 0, 8, 128);
+  const skyGeo = new THREE.ShapeGeometry(new THREE.Shape(openingPoints(1.1, 1.18)), 4);
+  { const pos = skyGeo.attributes.position, uv = skyGeo.attributes.uv;
+    for (let i = 0; i < pos.count; i++) uv.setXY(i, (pos.getX(i) + LIP_W) / (2 * LIP_W), (pos.getY(i) + 1.1) / 2.2); }
+  const sky = new Mesh(skyGeo, new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(skyCv), fog: false }));
+  sky.position.set(0, 0, -5.25); lipsGroup.add(sky);
+
+  /* ---------------- shared geometry ---------------- */
+  const PROFILE = [[0, 0], [0.36, 0], [0.44, 0.14], [0.47, 0.4], [0.47, 0.8], [0.43, 1.02], [0.33, 1.14], [0.17, 1.2], [0, 1.22]];
+  function profileR(h) {
+    h = Math.abs(h);
+    for (let i = 1; i < PROFILE.length; i++) {
+      const [r1, y1] = PROFILE[i - 1], [r2, y2] = PROFILE[i];
+      if (h <= y2) return lerp(r1, r2, (h - y1) / ((y2 - y1) || 1));
+    }
+    return 0;
+  }
+  const toothGeo = new THREE.LatheGeometry(PROFILE.map(([r, y]) => new THREE.Vector2(r, y)), 40);
+  const eyeGeo = new THREE.SphereGeometry(0.07, 16, 12);
+  const glintGeo = new THREE.SphereGeometry(0.022, 8, 6);
+  const smileGeo = new THREE.TorusGeometry(0.075, 0.022, 8, 20, Math.PI);
+  const ohGeo = new THREE.SphereGeometry(0.05, 14, 10);
+  const cheekGeo = new THREE.SphereGeometry(0.055, 12, 8);
+  const holeGeo = new THREE.SphereGeometry(1, 20, 14);
+  const holeMat = new THREE.MeshBasicMaterial({ color: 0x050205 });
+  const rimMat = toon(0x4f2c18);
+  const shieldGeo = new THREE.SphereGeometry(1, 32, 24);
+  const darkMat = basic(0x2a0f1c), whiteMat = basic(0xffffff);
+  const cheekMat = new THREE.MeshBasicMaterial({ color: 0xff9fb6, transparent: true, opacity: 0.75 });
+
+  const shieldBase = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uAlpha: { value: 0 }, uColor: { value: new THREE.Color(0x6ff4ff) } },
+    vertexShader: 'varying vec3 vN; varying vec3 vV; varying vec3 vP;' +
+      'void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); vN = normalize(normalMatrix*normal); vV = normalize(-mv.xyz); vP = position; gl_Position = projectionMatrix*mv; }',
+    fragmentShader: 'uniform float uTime; uniform float uAlpha; uniform vec3 uColor; varying vec3 vN; varying vec3 vV; varying vec3 vP;' +
+      'void main(){ float f = 1.0 - abs(dot(normalize(vN), normalize(vV))); f = pow(f, 2.0);' +
+      ' float band = 0.5 + 0.5*sin(vP.y*12.0 - uTime*3.0);' +
+      ' float a = (f*0.95 + 0.07 + band*0.07) * uAlpha; gl_FragColor = vec4(uColor*(0.75 + f*0.7), a); }',
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  });
+
+  /* ---------------- teeth ---------------- */
+  const ANGLES = [-75, -45, -15, 15, 45, 75].map((d) => d * DEG);
+  const SIZES = [1.12, 1.02, 0.93, 0.93, 1.02, 1.12];
+  // slots are [angle around the tooth, height offset from the face centre]
+  const FOOD_SLOTS = [[-0.55, 0.28], [0.5, -0.2], [0.16, 0.36], [-0.38, -0.25], [0.62, 0.16]];
+  const GERM_SLOTS = [[0.0, 0.34], [-0.7, 0.02], [0.7, -0.06]];
+  // where each germ digs: a spot on the tooth beside its germ slot
+  const HOLE_SLOTS = [[0.5, 0.26], [-0.2, -0.1], [0.22, -0.22]];
+
+  const C_HEALTHY = new THREE.Color(0xfffaf0), C_YELLOW = new THREE.Color(0xeed083),
+        C_BROWN = new THREE.Color(0xa06d3e), C_DEAD = new THREE.Color(0x5e4a3c);
+
+  function makeTooth(i) {
+    const lower = i < 6, k = i % 6, dir = lower ? 1 : -1;
+    const s = SIZES[k];
+    const g = new Group();
+    g.position.copy(archPos(ANGLES[k], -dir * BASE_Y));
+    g.lookAt(new V3(0, g.position.y, 2.4));
+    g.scale.setScalar(s);
+    (lower ? lowerJaw : upperJaw).add(g);
+    const inner = new Group(); g.add(inner);
+    const mat = toon(0xfffaf0);
+    const body = new Mesh(toothGeo, mat);
+    if (!lower) body.rotation.x = Math.PI;
+    inner.add(body);
+    const hc = lower ? 0.69 : -0.73;
+    const at = (ang, v, lift, obj) => {
+      const piv = new THREE.Object3D(); piv.rotation.y = ang; piv.position.y = hc + v;
+      const holder = new THREE.Object3D(); holder.position.z = profileR(hc + v) + lift;
+      piv.add(holder); inner.add(piv); if (obj) holder.add(obj);
+      return holder;
+    };
+
+    const eyes = [-1, 1].map((sx) => {
+      const e = new Group();
+      const ball = new Mesh(eyeGeo, darkMat); ball.scale.set(0.85, 1.12, 0.45);
+      const gl = new Mesh(glintGeo, whiteMat); gl.position.set(0.018, 0.03, 0.03);
+      e.add(ball, gl);
+      at(sx * 0.3, 0.1, 0, e);
+      return e;
+    });
+    const mouthHolder = at(0, -0.11, 0.004);
+    const smile = new Mesh(smileGeo, darkMat); smile.rotation.z = Math.PI;
+    const frown = new Mesh(smileGeo, darkMat); frown.position.y = -0.05;
+    const oh = new Mesh(ohGeo, darkMat); oh.scale.set(1, 1.25, 0.4);
+    mouthHolder.add(smile, frown, oh);
+    for (const sx of [-1, 1]) { const c = new Mesh(cheekGeo, cheekMat); c.scale.set(1.2, 0.8, 0.3); at(sx * 0.58, -0.08, -0.004, c); }
+
+    const shieldMat = shieldBase.clone();
+    const shield = new Mesh(shieldGeo, shieldMat);
+    shield.scale.set(0.66, 0.84, 0.66); shield.position.y = hc; shield.visible = false;
+    g.add(shield);
+    // the hole left in the gum when this tooth falls out
+    const socket = new Mesh(new THREE.SphereGeometry(0.3, 16, 12), toon(0x5a1426));
+    socket.scale.set(s * 1.05, 0.4, s); socket.position.copy(g.position); socket.position.y += dir * 0.3; socket.visible = false;
+    (lower ? lowerJaw : upperJaw).add(socket);
+
+    const T = {
+      socket, homePos: g.position.clone(), homeQuat: g.quaternion.clone(), fall: null,
+      i, g, inner, mat, lower, s, hc, eyes, smile, frown, oh, shield, shieldMat,
+      foodAnchors: FOOD_SLOTS.map(([a, v]) => at(a, v, 0.04)),
+      germAnchors: GERM_SLOTS.map(([a, v]) => at(a, v, 0.1)),
+      holeAnchors: HOLE_SLOTS.map(([a, v]) => at(a, v, -0.012)), holes: [],
+      health: 100, stage: 0, foods: [], germs: [], reserved: new Set(), incoming: 0,
+      shieldT: 0, clean: 0, germTimer: 0, healFx: 0, blinkT: rand(1, 5), shake: 0, brushedT: 0,
+      faceLocal: new V3(0, hc, 0.47), face: new V3(), sx: 0, sy: 0, sr: 1
+    };
+    return T;
+  }
+  const teeth = [];
+  for (let i = 0; i < 12; i++) teeth.push(makeTooth(i));
+
+  /* ---------------- food ---------------- */
+  const sphere = (r, seg) => new THREE.SphereGeometry(r, seg || 16, 12);
+  // sugar: how much germs love it (1 = worst). sticky: how hard it is to brush off.
+  const FOOD_TYPES = [
+    { name: 'candy', sugar: 1.0, sticky: 1.4, weight: 1.2, color: 0xff5d9e, make() {
+        const grp = new Group();
+        grp.add(new Mesh(sphere(0.15), tm(0xff5d9e)));
+        const st = new Mesh(new THREE.TorusGeometry(0.15, 0.035, 8, 24), tm(0xffffff)); st.rotation.x = 0.5; grp.add(st);
+        return grp; } },
+    { name: 'chocolate', sugar: 0.9, sticky: 1.25, weight: 1, color: 0x6b3a1e, make() {
+        const grp = new Group();
+        const b = new Mesh(new THREE.BoxGeometry(0.3, 0.24, 0.14), tm(0x6b3a1e)); grp.add(b);
+        const t = new Mesh(new THREE.BoxGeometry(0.26, 0.04, 0.02), tm(0x8a5230)); t.position.set(0, 0, 0.075); grp.add(t);
+        return grp; } },
+    { name: 'cookie', sugar: 0.6, sticky: 1.1, weight: 1, color: 0xd9a35b, make() {
+        const grp = new Group();
+        [[0, 0, 0.11], [0.12, 0.07, 0.08], [-0.1, 0.08, 0.075], [0.03, -0.11, 0.07]].forEach(([x, y, r]) => {
+          const c = new Mesh(new THREE.DodecahedronGeometry(r, 0), tm(0xd9a35b)); c.position.set(x, y, 0);
+          c.rotation.set(rand(0, 3), rand(0, 3), 0); grp.add(c);
+        });
+        const chip = new Mesh(sphere(0.03, 8), tm(0x3b2012)); chip.position.set(0.02, 0.02, 0.1); grp.add(chip);
+        return grp; } },
+    { name: 'gummy', sugar: 1.0, sticky: 1.6, weight: 1, color: 0x49d66b, make() {
+        const c = pick([0xff4d4d, 0x49d66b, 0xffc93c]);
+        const grp = new Group();
+        const b = new Mesh(sphere(0.11), tm(c)); b.scale.set(1, 1.2, 0.8); b.position.y = -0.04; grp.add(b);
+        const h = new Mesh(sphere(0.08), tm(c)); h.position.y = 0.12; grp.add(h);
+        for (const sx of [-1, 1]) { const e = new Mesh(sphere(0.035, 8), tm(c)); e.position.set(sx * 0.06, 0.19, 0); grp.add(e); }
+        grp.userData.color = c;
+        return grp; } },
+    { name: 'apple', sugar: 0.3, sticky: 0.45, weight: 0.9, color: 0xfff1c9, make() {
+        const grp = new Group();
+        const flesh = new Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.08, 18, 1, false, 0, Math.PI), tm(0xfff1c9));
+        flesh.rotation.x = Math.PI / 2; grp.add(flesh);
+        const skin = new Mesh(new THREE.TorusGeometry(0.17, 0.03, 6, 18, Math.PI), tm(0xe23b3b));
+        skin.rotation.z = -Math.PI / 2; grp.add(skin);
+        for (const y of [-0.04, 0.04]) { const s = new Mesh(sphere(0.02, 6), tm(0x3b2012)); s.scale.set(0.7, 1.2, 0.6); s.position.set(0.05, y, 0.045); grp.add(s); }
+        return grp; } },
+    { name: 'carrot', sugar: 0.12, sticky: 0.35, weight: 0.9, color: 0xff8c1a, make() {
+        const grp = new Group();
+        const c = new Mesh(new THREE.ConeGeometry(0.075, 0.32, 10), tm(0xff8c1a)); c.rotation.z = Math.PI / 2; grp.add(c);
+        for (let i = -1; i <= 1; i++) {
+          const l = new Mesh(new THREE.ConeGeometry(0.025, 0.12, 5), tm(0x3cb54a));
+          l.position.set(-0.2, i * 0.03, 0); l.rotation.z = Math.PI / 2 + i * 0.5; grp.add(l);
+        }
+        return grp; } },
+    { name: 'broccoli', sugar: 0.05, sticky: 0.4, weight: 0.8, color: 0x2f9e44, make() {
+        const grp = new Group();
+        const st = new Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.16, 8), tm(0x9ad96a)); st.position.y = -0.09; grp.add(st);
+        [[0, 0.04, 0.08], [-0.08, 0.0, 0.06], [0.08, 0.0, 0.065], [0, 0.1, 0.06]].forEach(([x, y, r]) => {
+          const f = new Mesh(sphere(r, 10), tm(0x2f9e44)); f.position.set(x, y, 0); grp.add(f);
+        });
+        return grp; } },
+    { name: 'cheese', sugar: 0.0, sticky: 0.4, weight: 0.8, color: 0xffd23f, make() {
+        const grp = new Group();
+        const w = new Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.12, 10, 1, false, 0, 0.9), tm(0xffd23f));
+        w.rotation.x = Math.PI / 2; w.position.set(-0.08, -0.1, 0); grp.add(w);
+        const hole = new Mesh(sphere(0.025, 8), tm(0xd9a400)); hole.position.set(0.0, -0.02, 0.06); grp.add(hole);
+        return grp; } }
+  ];
+  const FOOD_WEIGHT = FOOD_TYPES.reduce((a, f) => a + f.weight, 0);
+  function pickFood() {
+    let r = Math.random() * FOOD_WEIGHT;
+    for (const f of FOOD_TYPES) { r -= f.weight; if (r <= 0) return f; }
+    return FOOD_TYPES[0];
+  }
+  // food and tool meshes build their own geometry; free it when they go away
+  function disposeTree(obj) {
+    if (obj.parent) obj.parent.remove(obj);
+    obj.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+  }
+  const toothSugar = (T) => T.foods.reduce((m, f) => Math.max(m, f.sugar), 0);
+
+  /* ---------------- germs ---------------- */
+  const germGeo = new THREE.IcosahedronGeometry(0.13, 1);
+  const spikeGeo = new THREE.ConeGeometry(0.035, 0.09, 6);
+  const gEyeGeo = sphere(0.045, 12), gPupilGeo = sphere(0.024, 8);
+  const browGeo = new THREE.BoxGeometry(0.065, 0.016, 0.016);
+  const fangGeo = new THREE.ConeGeometry(0.012, 0.03, 5);
+  const GERM_COLORS = [0x86d23c, 0xa66cff, 0x3fc9a8];
+  const SPIKE_DIRS = [];
+  for (let i = 0; i < 14; i++) {
+    const y = 1 - (i / 13) * 2, r = Math.sqrt(1 - y * y), th = i * 2.39996;
+    const d = new V3(Math.cos(th) * r, y, Math.sin(th) * r);
+    if (d.z < 0.55) SPIKE_DIRS.push(d);
+  }
+  function makeGerm() {
+    const c = pick(GERM_COLORS);
+    const grp = new Group(), inner = new Group(); grp.add(inner);
+    const m = tm(c);
+    inner.add(new Mesh(germGeo, m));
+    for (const d of SPIKE_DIRS) {
+      const sp = new Mesh(spikeGeo, m); sp.position.copy(d).multiplyScalar(0.13);
+      sp.quaternion.setFromUnitVectors(new V3(0, 1, 0), d); inner.add(sp);
+    }
+    for (const sx of [-1, 1]) {
+      const e = new Mesh(gEyeGeo, whiteMat); e.position.set(sx * 0.05, 0.035, 0.1); inner.add(e);
+      const p = new Mesh(gPupilGeo, darkMat); p.position.set(sx * 0.045, 0.03, 0.14); inner.add(p);
+      const b = new Mesh(browGeo, darkMat); b.position.set(sx * 0.05, 0.095, 0.115); b.rotation.z = -sx * 0.45; inner.add(b);
+    }
+    const mouth = new Mesh(sphere(0.045, 12), darkMat); mouth.scale.set(1.35, 0.6, 0.5); mouth.position.set(0, -0.05, 0.11); inner.add(mouth);
+    for (const sx of [-1, 1]) { const f = new Mesh(fangGeo, whiteMat); f.rotation.z = Math.PI; f.position.set(sx * 0.025, -0.035, 0.13); inner.add(f); }
+    grp.scale.setScalar(0.001);
+    return { grp, inner, mouth, color: c, hp: GERM_HP, t: rand(0, 6), age: 0, size: 1, hit: 0,
+      kind: Math.random() < 0.5 ? 'pick' : 'drill', lastP: 0, drillT: 0 };
+  }
+
+  // tools are built along +y, from the germ's grip (origin) to the spot being dug (y = L)
+  const steelMat = tm(0xb8c2cc), woodMat = tm(0x9a6433), drillMat = tm(0xffc93c), blackMat = tm(0x3a3f47);
+  function makeTool(kind, L) {
+    const root = new Group(), swing = new Group(); root.add(swing);
+    let bit = null;
+    if (kind === 'pick') {
+      const handle = new Mesh(new THREE.CylinderGeometry(0.02, 0.024, L * 0.95, 8), woodMat);
+      handle.position.y = L * 0.475; swing.add(handle);
+      const head = new Group(); head.position.y = L * 0.95; swing.add(head);
+      head.add(new Mesh(new THREE.BoxGeometry(0.055, 0.05, 0.05), blackMat));
+      for (const sx of [-1, 1]) {
+        const c = new Mesh(new THREE.ConeGeometry(0.03, 0.17, 8), steelMat);
+        c.rotation.z = -sx * (Math.PI / 2 - 0.45); c.position.set(sx * 0.075, 0.035, 0); head.add(c);
+      }
+    } else {
+      const body = new Mesh(new THREE.BoxGeometry(0.12, 0.19, 0.1), drillMat); body.position.y = L - 0.24; swing.add(body);
+      const grip = new Mesh(new THREE.BoxGeometry(0.055, 0.12, 0.06), blackMat); grip.position.set(0.07, L - 0.32, 0); grip.rotation.z = 0.5; swing.add(grip);
+      const chuck = new Mesh(new THREE.CylinderGeometry(0.03, 0.045, 0.05, 10), blackMat); chuck.position.y = L - 0.13; swing.add(chuck);
+      bit = new Mesh(new THREE.ConeGeometry(0.026, 0.11, 7), steelMat); bit.position.y = L - 0.055; swing.add(bit);
+    }
+    return { root, swing, bit };
+  }
+
+  function makeHole() {
+    const grp = new Group();
+    const rim = new Mesh(holeGeo, rimMat); rim.scale.set(1.3, 1.35, 0.3);
+    const pit = new Mesh(holeGeo, holeMat); pit.scale.set(1, 1.08, 0.45);
+    grp.add(rim, pit); grp.scale.setScalar(0.001);
+    return { grp, dmg: 0, bump: 0 };
+  }
+
+  // give a new germ its tool, aimed at its digging spot
+  const zAxis = new V3(0, 0, 1), basis = new THREE.Matrix4();
+  function armGerm(T, g) {
+    T.g.updateMatrixWorld(true);
+    const anchor = T.germAnchors[g.slot];
+    const target = new V3(); T.holeAnchors[g.slot].getWorldPosition(target);
+    anchor.worldToLocal(target);
+    target.z += 0.03;                                   // tip rests on the enamel, not inside it
+    const side = Math.sign(target.x) || 1;
+    const grip = new V3(side * 0.16, 0.1, 0.07);
+    const d = target.clone().sub(grip);
+    const L = d.length();
+    const y = d.normalize();
+    const z = zAxis.clone().addScaledVector(y, -y.z).normalize();
+    const x = new V3().crossVectors(y, z);
+    const tool = makeTool(g.kind, L);
+    tool.swing.add(new Mesh(sphere(0.04, 10), tm(g.color)));   // the germ's little hand
+    tool.root.quaternion.setFromRotationMatrix(basis.makeBasis(x, y, z));
+    tool.root.position.copy(grip);
+    tool.root.scale.setScalar(0.001);
+    anchor.add(tool.root);
+    g.tool = tool; g.side = side;
+  }
+
+  /* ---------------- toothbrush (drawn on top) ---------------- */
+  const brushScene = new THREE.Scene();
+  brushScene.add(new THREE.HemisphereLight(0xffffff, 0x80606f, 0.95));
+  const bl = new THREE.DirectionalLight(0xffffff, 0.6); bl.position.set(1, 2, 3); brushScene.add(bl);
+  const brush = new Group(); brushScene.add(brush);
+  const brushInner = new Group(); brush.add(brushInner);
+  const handleMat = toon(0xff8a3d), stripeMat = toon(0x52e3b8);
+  {
+    const head = new Mesh(new THREE.BoxGeometry(0.44, 0.085, 0.17), handleMat); head.position.set(0.02, 0.265, 0); brushInner.add(head);
+    const nose = new Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.085, 16), handleMat); nose.position.set(-0.2, 0.265, 0); brushInner.add(nose);
+    const bGeo = new THREE.CylinderGeometry(0.027, 0.027, 0.15, 8);
+    const bMat = toon(0xf4fbff), bMat2 = toon(0x9fe9ff);
+    for (let ix = 0; ix < 6; ix++) for (let iz = 0; iz < 2; iz++) {
+      const b = new Mesh(bGeo, (ix + iz) % 2 ? bMat : bMat2); b.position.set(-0.17 + ix * 0.068, 0.155, iz ? 0.045 : -0.045); brushInner.add(b);
+    }
+    const handle = new Group(); handle.position.set(0.23, 0.265, 0); handle.rotation.z = -0.12; brushInner.add(handle);
+    const neck = new Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.26, 12), handleMat); neck.rotation.z = Math.PI / 2; neck.position.x = 0.13; handle.add(neck);
+    const grip = new Mesh(new THREE.CylinderGeometry(0.062, 0.062, 0.8, 16), handleMat); grip.rotation.z = Math.PI / 2; grip.position.x = 0.66; handle.add(grip);
+    for (const x of [0.46, 0.58, 0.7]) { const st = new Mesh(new THREE.CylinderGeometry(0.066, 0.066, 0.05, 16), stripeMat); st.rotation.z = Math.PI / 2; st.position.x = x; handle.add(st); }
+    const end = new Mesh(sphere(0.062), handleMat); end.position.x = 1.06; handle.add(end);
+  }
+  const pasteBlobs = [];
+  for (let i = 0; i < 6; i++) {
+    const m = new Mesh(sphere(0.052), i % 2 ? tm(0x7ef0cf) : tm(0xffffff));
+    m.position.set(-0.17 + i * 0.068, 0.05 + Math.sin(i * 1.7) * 0.012, 0);
+    m.scale.set(1.2, 0.95, 1.1);
+    brushInner.add(m); pasteBlobs.push(m);
+  }
+  brushInner.rotation.z = -0.38;
+  brush.visible = false;
+
+  /* ---------------- particles ---------------- */
+  const pSphere = new THREE.SphereGeometry(1, 10, 8), pStar = new THREE.OctahedronGeometry(1, 0);
+  const pPlus = new THREE.ShapeGeometry(new THREE.Shape([[-0.3, 1], [0.3, 1], [0.3, 0.3], [1, 0.3], [1, -0.3], [0.3, -0.3], [0.3, -1], [-0.3, -1], [-0.3, -0.3], [-1, -0.3], [-1, 0.3], [-0.3, 0.3]].map(([x, y]) => new THREE.Vector2(x, y))));
+  const pool = [], live = [];
+  function particle(geo, color, pos, vel, life, size, o) {
+    o = o || {};
+    let m = pool.pop();
+    if (!m) m = new Mesh(pSphere, new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }));
+    m.geometry = geo; m.material.color.setHex(color); m.position.copy(pos);
+    if (o.upright) m.rotation.set(0, 0, 0); else m.rotation.set(rand(0, 3), rand(0, 3), 0);
+    m.visible = true; scene.add(m);
+    live.push({ m, vel, life, max: life, size, grav: o.grav || 0, spin: o.spin || 0, grow: !!o.grow, op: o.op == null ? 1 : o.op, sy: o.sy || 1 });
+  }
+  function updateParticles(dt) {
+    for (let i = live.length - 1; i >= 0; i--) {
+      const p = live[i];
+      p.life -= dt;
+      if (p.life <= 0) { scene.remove(p.m); p.m.visible = false; pool.push(p.m); live.splice(i, 1); continue; }
+      p.vel.y += p.grav * dt;
+      p.m.position.addScaledVector(p.vel, dt);
+      p.m.rotation.y += p.spin * dt;
+      const t = 1 - p.life / p.max;
+      const sc = p.grow ? p.size * (0.3 + 0.7 * Math.min(1, t * 3)) : p.size * (1 - t * 0.7);
+      p.m.scale.set(sc, sc * p.sy, sc);
+      p.m.material.opacity = p.op * Math.min(1, (p.life / p.max) * 2.5);
+    }
+  }
+  const tmpV = new V3();
+  function burst(pos, color, n, speed, size, o) {
+    for (let i = 0; i < n; i++) {
+      const v = new V3(rand(-1, 1), rand(-0.6, 1), rand(0.2, 1)).normalize().multiplyScalar(speed * rand(0.5, 1));
+      particle(o && o.star ? pStar : pSphere, color, pos, v, rand(0.35, 0.7), size * rand(0.6, 1.2), o);
+    }
+  }
+  function sparkle(pos, n) { burst(pos, 0xfff2a8, n, 1.6, 0.06, { star: true, spin: 8, sy: 2.2 }); }
+  function bubbles(pos, n) {
+    for (let i = 0; i < n; i++) {
+      const p = tmpV.copy(pos).add(new V3(rand(-0.3, 0.3), rand(-0.25, 0.25), rand(0.05, 0.25)));
+      particle(pSphere, Math.random() < 0.7 ? 0xffffff : 0xc9fff0, p, new V3(rand(-0.2, 0.2), rand(0.25, 0.7), rand(0, 0.3)), rand(0.6, 1.1), rand(0.03, 0.075), { grow: true, op: 0.9 });
+    }
+  }
+
+  /* ---------------- sound ---------------- */
+  let muted = false;
+  try { muted = localStorage.getItem('sparkle-smile-muted') === '1'; } catch (e) { /* storage unavailable */ }
+  let actx = null, master = null, brushGain = null, brushFilter = null, noiseBuf = null;
+  function initAudio() {
+    try {
+      if (!actx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        actx = new AC();
+        master = actx.createGain(); master.gain.value = muted ? 0 : 0.7; master.connect(actx.destination);
+        noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
+        const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        const src = actx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+        brushFilter = actx.createBiquadFilter(); brushFilter.type = 'bandpass'; brushFilter.frequency.value = 3000; brushFilter.Q.value = 0.9;
+        brushGain = actx.createGain(); brushGain.gain.value = 0;
+        src.connect(brushFilter); brushFilter.connect(brushGain); brushGain.connect(master); src.start();
+        // iOS unlock: play a silent buffer inside the tap
+        const unlock = actx.createBufferSource(); unlock.buffer = actx.createBuffer(1, 1, 22050); unlock.connect(actx.destination); unlock.start(0);
+      }
+      if (actx.state === 'suspended') actx.resume();
+    } catch (e) { actx = null; }
+  }
+  function tone(f, f2, type, dur, vol, delay) {
+    if (!actx || muted) return;
+    const t0 = actx.currentTime + (delay || 0);
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine'; o.frequency.setValueAtTime(f, t0);
+    if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + dur + 0.05);
+  }
+  function noise(dur, vol, type, f, f2, delay) {
+    if (!actx || muted) return;
+    const t0 = actx.currentTime + (delay || 0);
+    const s = actx.createBufferSource(); s.buffer = noiseBuf;
+    const fl = actx.createBiquadFilter(); fl.type = type; fl.frequency.setValueAtTime(f, t0);
+    if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
+    const g = actx.createGain(); g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    s.connect(fl); fl.connect(g); g.connect(master); s.start(t0, rand(0, 0.5)); s.stop(t0 + dur + 0.05);
+  }
+  // many germs dig at once; keep their tool noise from piling up
+  let lastToolSound = 0;
+  function toolSoundOk() {
+    const now = performance.now();
+    if (now - lastToolSound < 110) return false;
+    lastToolSound = now; return true;
+  }
+  const sfx = {
+    whoosh() { noise(0.35, 0.12, 'bandpass', 500, 1600); },
+    splat() { noise(0.2, 0.45, 'lowpass', 1200, 200); tone(190, 70, 'sine', 0.16, 0.3); },
+    pop() { tone(520, 1500, 'sine', 0.12, 0.35); tone(900, 1900, 'triangle', 0.08, 0.12, 0.03); },
+    clean() { tone(1320, 1760, 'triangle', 0.12, 0.14); },
+    ding() { tone(1046, 0, 'triangle', 0.5, 0.22); tone(1568, 0, 'triangle', 0.55, 0.16, 0.09); tone(2093, 0, 'sine', 0.5, 0.08, 0.18); },
+    germ() { [0, 0.11, 0.2].forEach((d, i) => tone(280 + i * 50, 240 + i * 50, 'square', 0.08, 0.06, d)); },
+    bonk() { tone(230, 90, 'sine', 0.35, 0.4); tone(120, 60, 'triangle', 0.3, 0.2); },
+    tink() { if (toolSoundOk()) { tone(2100, 1700, 'triangle', 0.06, 0.05); noise(0.04, 0.05, 'highpass', 4000); } },
+    drill() { if (toolSoundOk()) tone(110, 140, 'sawtooth', 0.14, 0.025); },
+    clunk() { tone(150, 70, 'triangle', 0.22, 0.35); noise(0.12, 0.25, 'lowpass', 600, 150); },
+    fizz() { noise(0.3, 0.08, 'highpass', 3000, 6000); },
+    squeeze() { noise(0.45, 0.3, 'bandpass', 300, 1800); tone(200, 420, 'sine', 0.3, 0.12); },
+    fanfare() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0, 'triangle', 0.35, 0.22, i * 0.13)); tone(1046, 0, 'sine', 0.8, 0.12, 0.55); }
+  };
+  let voiceBusyUntil = 0;
+  function say(text, force) {
+    if (muted || !('speechSynthesis' in window)) return;
+    const now = performance.now();
+    if (!force && now < voiceBusyUntil) return;
+    try {
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 1.0; u.pitch = 1.3; u.volume = 1;
+      window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
+      voiceBusyUntil = now + 2600;
+    } catch (e) { /* speech unavailable */ }
+  }
+  function setMuted(m) {
+    muted = m;
+    try { localStorage.setItem('sparkle-smile-muted', m ? '1' : '0'); } catch (e) { /* ignore */ }
+    if (master) master.gain.value = m ? 0 : 0.7;
+    if (m && 'speechSynthesis' in window) try { speechSynthesis.cancel(); } catch (e) { /* ignore */ }
+    $('soundOn').hidden = m; $('soundOff').hidden = !m;
+    $('muteBtn').setAttribute('aria-pressed', String(m));
+    $('muteBtn').setAttribute('aria-label', m ? 'Sound off' : 'Sound on');
+  }
+  setMuted(muted);
+
+  /* ---------------- input ---------------- */
+  const pointer = { x: innerWidth * 0.6, y: innerHeight * 0.6, acc: 0, vx: 0, lastX: null, lastY: null, id: null, touch: false, inside: false };
+  function onMove(e) {
+    if (pointer.id !== null && e.pointerId !== pointer.id) return;
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : null;
+    const list = evs && evs.length ? evs : [e];
+    for (const ev of list) {
+      if (pointer.lastX !== null) {
+        const dx = ev.clientX - pointer.lastX, dy = ev.clientY - pointer.lastY;
+        pointer.acc += Math.hypot(dx, dy) / Math.min(innerWidth, innerHeight);
+        pointer.vx += dx;
+      }
+      pointer.lastX = ev.clientX; pointer.lastY = ev.clientY;
+    }
+    pointer.x = e.clientX; pointer.y = e.clientY - (pointer.touch ? 18 : 0);
+    pointer.inside = true;
+  }
+  canvas.addEventListener('pointerdown', (e) => {
+    if (pointer.id !== null && pointer.touch) return;           // ignore a second finger
+    pointer.touch = e.pointerType !== 'mouse';
+    if (pointer.touch) pointer.id = e.pointerId;
+    pointer.lastX = e.clientX; pointer.lastY = e.clientY;
+    pointer.x = e.clientX; pointer.y = e.clientY - (pointer.touch ? 18 : 0);
+    pointer.inside = true;
+    initAudio();
+    e.preventDefault();
+  }, { passive: false });
+  window.addEventListener('pointermove', onMove, { passive: true });
+  const release = (e) => { if (e.pointerId === pointer.id) { pointer.id = null; pointer.lastX = null; if (pointer.touch) pointer.inside = false; } };
+  window.addEventListener('pointerup', release);
+  window.addEventListener('pointercancel', release);
+  document.addEventListener('mouseleave', () => { pointer.inside = false; pointer.lastX = null; });
+  // keep iOS from zooming, scrolling or bouncing the page
+  document.addEventListener('gesturestart', (e) => e.preventDefault());
+  document.addEventListener('touchmove', (e) => { if (!e.target.closest('.overlay')) e.preventDefault(); }, { passive: false });
+  document.addEventListener('dblclick', (e) => e.preventDefault());
+
+  /* ---------------- HUD ---------------- */
+  const pipsEl = $('pips');
+  const pipEls = [];
+  // top row shows the upper teeth, bottom row the lower teeth, left to right as on screen
+  [6, 7, 8, 9, 10, 11, 0, 1, 2, 3, 4, 5].forEach((ti) => {
+    const d = document.createElement('div'); d.className = 'pip';
+    d.innerHTML = '<svg viewBox="0 0 80 80"><use href="#toothShape"/></svg>';
+    if (ti >= 6) d.querySelector('svg').style.transform = 'scaleY(-1)';
+    pipsEl.appendChild(d); pipEls[ti] = d;
+  });
+  const pipState = [];
+  function updateHud() {
+    teeth.forEach((T, i) => {
+      let c = 'pip';
+      if (T.health <= 0) c += ' dead'; else if (T.health < 40) c += ' bad'; else if (T.health < 75) c += ' warn';
+      if (T.germs.length) c += ' germ';
+      if (T.shieldT > 0) c += ' shield';
+      if (pipState[i] !== c) { pipEls[i].className = c; pipState[i] = c; }
+    });
+    const p = clamp(elapsed / ROUND_TIME, 0, 1);
+    $('timeFill').style.width = 'calc((100% - 6px) * ' + p.toFixed(4) + ')';
+    $('rider').style.left = (p * 100).toFixed(2) + '%';
+    $('pasteFill').style.width = paste.toFixed(1) + '%';
+    const tube = $('tubeBtn');
+    tube.classList.toggle('low', paste < 25 && refill <= 0);
+    tube.classList.toggle('empty', paste <= 0);
+  }
+
+  /* ---------------- game state ---------------- */
+  let state = 'menu', elapsed = 0, spawnTimer = 1.2, bonusFoodT = 0, paste = 100, refill = 0;
+  let germsZapped = 0, foodCleaned = 0, pasteEmptyAt = -99;
+  const told = {};
+  const flights = [];
+
+  function resetGame() {
+    for (const T of teeth) {
+      for (const f of T.foods) disposeTree(f.mesh);
+      for (const g of T.germs) { g.grp.parent && g.grp.parent.remove(g.grp); if (g.tool) disposeTree(g.tool.root); }
+      for (const h of T.holes) h && h.grp.parent && h.grp.parent.remove(h.grp);
+      T.holes = [];
+      Object.assign(T, { foods: [], germs: [], incoming: 0, health: 100, stage: 0, shieldT: 0, clean: 0, germTimer: 0, shake: 0, fall: null });
+      T.reserved.clear();
+      (T.lower ? lowerJaw : upperJaw).add(T.g);
+      T.g.position.copy(T.homePos); T.g.quaternion.copy(T.homeQuat); T.g.scale.setScalar(T.s); T.g.visible = true;
+      T.mat.color.copy(C_HEALTHY);
+      T.socket.visible = false;
+    }
+    for (const f of flights) disposeTree(f.mesh);
+    flights.length = 0;
+    elapsed = 0; spawnTimer = 1.2; bonusFoodT = 0; paste = 100; refill = 0; germsZapped = 0; foodCleaned = 0; pasteEmptyAt = -99;
+    for (const k in told) delete told[k];
+  }
+
+  function startGame() {
+    initAudio();
+    resetGame();
+    state = 'play';
+    $('menu').hidden = true; $('end').hidden = true; $('hud').hidden = false;
+    document.body.classList.add('playing');
+    brush.visible = true;
+    say('Brush the food off the teeth!', true);
+  }
+
+  function endGame() {
+    state = 'end';
+    brush.visible = false;
+    document.body.classList.remove('playing');
+    if (brushGain) brushGain.gain.setTargetAtTime(0, actx.currentTime, 0.05);
+    for (const f of flights) disposeTree(f.mesh);
+    flights.length = 0;
+    const alive = teeth.filter((T) => T.health > 0);
+    const happy = teeth.filter((T) => T.health >= 75).length;
+    const avg = teeth.reduce((a, T) => a + T.health, 0) / teeth.length;
+    const stars = avg >= 85 ? 3 : avg >= 60 ? 2 : 1;
+    $('endTitle').textContent = stars === 3 ? 'Super sparkly!' : stars === 2 ? 'Great brushing!' : 'Good try!';
+    $('statTeeth').textContent = happy + ' / 12';
+    $('statGerms').textContent = germsZapped;
+    $('statFood').textContent = foodCleaned;
+    $('stars').innerHTML = [0, 1, 2].map((i) =>
+      '<svg viewBox="0 0 80 80" class="' + (i < stars ? 'on' : 'off') + '"><use href="#starShape"/></svg>').join('');
+    alive.forEach((T) => sparkle(T.face, 6));
+    setTimeout(() => { $('hud').hidden = true; $('end').hidden = false; $('againBtn').focus({ preventScroll: true }); }, 700);
+    sfx.fanfare();
+    say(stars === 3 ? 'Wow! Super sparkly teeth!' : 'Great brushing!', true);
+  }
+
+  function launchFood() {
+    const cands = teeth.filter((T) => T.health > 0 && T.foods.length + T.incoming < MAX_FOOD);
+    if (!cands.length) return;
+    let total = 0;
+    const w = cands.map((T) => { const x = (MAX_FOOD - T.foods.length - T.incoming) * (T.shieldT > 0 ? 0.5 : 1) * (T.germs.length ? 0.6 : 1); total += x; return x; });
+    let r = Math.random() * total, T = cands[cands.length - 1];
+    for (let j = 0; j < cands.length; j++) { r -= w[j]; if (r <= 0) { T = cands[j]; break; } }
+    const used = new Set(T.foods.map((f) => f.slot)); T.reserved.forEach((s) => used.add(s));
+    const free = FOOD_SLOTS.map((_, n) => n).filter((n) => !used.has(n));
+    if (!free.length) return;
+    const slot = pick(free);
+    T.reserved.add(slot); T.incoming++;
+    const type = pickFood();
+    const mesh = type.make();
+    const target = new V3(); T.foodAnchors[slot].getWorldPosition(target);
+    const p0 = new V3(rand(-0.6, 0.6), rand(-0.15, 0.15), -5.1);
+    const p1 = new V3(target.x * 0.35, target.y * 0.3 + 0.4, lerp(-4, target.z, 0.5));
+    mesh.position.copy(p0); mesh.scale.setScalar(0.6);
+    // wait a moment so the mouth can open before the food flies in
+    flights.push({ mesh, T, slot, type, t: 0, wait: 0.4, dur: rand(0.75, 0.95), p0, p1, p2: target, spin: new V3(rand(-8, 8), rand(-8, 8), rand(-8, 8)) });
+  }
+
+  function updateFlights(dt) {
+    for (let i = flights.length - 1; i >= 0; i--) {
+      const f = flights[i];
+      if (f.wait > 0) {
+        f.wait -= dt;
+        if (f.wait <= 0) { scene.add(f.mesh); sfx.whoosh(); }
+        continue;
+      }
+      f.t += dt / f.dur;
+      f.T.foodAnchors[f.slot].getWorldPosition(f.p2);   // the tooth moves with its jaw
+      const t = Math.min(1, f.t), u = 1 - t;
+      f.mesh.position.set(
+        u * u * f.p0.x + 2 * u * t * f.p1.x + t * t * f.p2.x,
+        u * u * f.p0.y + 2 * u * t * f.p1.y + t * t * f.p2.y,
+        u * u * f.p0.z + 2 * u * t * f.p1.z + t * t * f.p2.z);
+      f.mesh.rotation.x += f.spin.x * dt; f.mesh.rotation.y += f.spin.y * dt; f.mesh.rotation.z += f.spin.z * dt;
+      f.mesh.scale.setScalar(lerp(0.7, 1.3, t));
+      if (t >= 1) {
+        flights.splice(i, 1);
+        const T = f.T;
+        T.reserved.delete(f.slot); T.incoming--;
+        if (T.health <= 0 || state !== 'play') { disposeTree(f.mesh); continue; }
+        scene.remove(f.mesh);
+        T.foodAnchors[f.slot].add(f.mesh);
+        f.mesh.position.set(0, 0, 0);
+        f.mesh.rotation.set(0, 0, rand(-0.6, 0.6));
+        T.foods.push({ mesh: f.mesh, amount: 1, slot: f.slot, color: f.mesh.userData.color || f.type.color,
+          sugar: f.type.sugar, sticky: f.type.sticky, squash: 1, hit: 0 });
+        T.clean = 0;
+        T.shake = Math.max(T.shake, 0.35);
+        burst(f.p2, f.mesh.userData.color || f.type.color, 5, 1.2, 0.035, { grav: -4 });
+        sfx.splat();
+        mouth.chompT = 0.22; tongueLick = 1;
+        if (f.type.sugar >= 0.9 && !told.sweet) { told.sweet = true; say('Uh oh, sweets! Germs love sugar!'); }
+        else if (f.type.sugar <= 0.3 && !told.healthy) { told.healthy = true; say('Yum, a ' + f.type.name + '! Germs don’t like healthy food much.'); }
+      }
+    }
+  }
+
+  function spawnGerm(T) {
+    const used = new Set(T.germs.map((g) => g.slot));
+    const slot = [0, 1, 2].find((n) => !used.has(n));
+    if (slot === undefined) return;
+    const g = makeGerm(); g.slot = slot;
+    T.germAnchors[slot].add(g.grp);
+    if (!T.holes[slot]) { const h = makeHole(); T.holeAnchors[slot].add(h.grp); T.holes[slot] = h; }
+    armGerm(T, g);
+    T.germs.push(g);
+    sfx.germ();
+    if (!told.germ) { told.germ = true; say('Oh no, germs! Brush them away!', true); }
+  }
+
+  function killGerm(T, g, zapped) {
+    const p = new V3(); g.grp.getWorldPosition(p);
+    g.grp.parent.remove(g.grp);
+    if (g.tool) { disposeTree(g.tool.root); burst(p, 0xb8c2cc, 4, 1.5, 0.03, { grav: -5, star: true }); }
+    T.germs.splice(T.germs.indexOf(g), 1);
+    burst(p, g.color, 9, 1.8, 0.05, { grav: -3 });
+    if (zapped === false) return;
+    sparkle(p, 3);
+    germsZapped++;
+    sfx.pop();
+  }
+
+  function removeFood(T, f, brushed) {
+    const p = new V3(); f.mesh.getWorldPosition(p);
+    disposeTree(f.mesh);
+    T.foods.splice(T.foods.indexOf(f), 1);
+    if (brushed) {
+      burst(p, f.color, 6, 1.4, 0.035, { grav: -4 });
+      foodCleaned++;
+      sfx.clean();
+      if (!T.foods.length && !T.germs.length) activateShield(T);
+    }
+  }
+
+  function activateShield(T) {
+    const was = T.shieldT;
+    T.shieldT = SHIELD_TIME; T.clean = 0; T.germTimer = 0;
+    if (was < 4) {
+      sparkle(T.face, 10);
+      sfx.ding();
+      if (!told.shield) { told.shield = true; say('Sparkly clean! That tooth has a bubble shield!'); }
+    }
+  }
+
+  function brushTooth(T, amt) {
+    T.brushedT = 0.15;
+    if (paste > 0 && Math.random() < amt * 40) bubbles(T.face, 1 + Math.floor(amt * 30));
+    if (T.health <= 0) return;
+    if (T.germs.length) {
+      for (const g of T.germs.slice()) { g.hp -= amt; g.hit = 0.25; if (g.hp <= 0) killGerm(T, g); }
+      return;
+    }
+    if (T.foods.length) {
+      for (const f of T.foods.slice()) { f.amount -= amt * 0.9 / f.sticky; f.hit = 0.2; if (f.amount <= 0) removeFood(T, f, true); }
+      return;
+    }
+    if (T.shieldT > 0) { T.shieldT = Math.min(SHIELD_TIME, T.shieldT + amt * 14); return; }
+    T.clean += amt;
+    if (T.clean >= 0.3) activateShield(T);
+  }
+
+  function damageTooth(T) {
+    const st = T.health <= 0 ? 3 : T.health < 40 ? 2 : T.health < 75 ? 1 : 0;
+    if (st > T.stage) {
+      T.stage = st; T.shake = 1;
+      sfx.bonk();
+      if (st === 3) {
+        for (const g of T.germs.slice()) killGerm(T, g, false);
+        for (const f of T.foods.slice()) removeFood(T, f, false);
+        T.shieldT = 0;
+        // wobble, then drop out of the gum
+        const inward = -Math.sign(T.g.position.x) || 1;
+        T.fall = {
+          t: 0, bounced: false,
+          v: new V3(inward * rand(0.2, 0.5), T.lower ? 2.4 : 0, rand(1.1, 1.5)),
+          spin: new V3((T.lower ? -1 : 1) * rand(2.5, 4), 0, inward * rand(1, 3))
+        };
+        say('Oh no! The tooth fell out!', true);
+      } else if (!told.ouch) { told.ouch = true; say('Ouch! Help that tooth!'); }
+    }
+  }
+
+  /* ---------------- per-frame logic ---------------- */
+  const camRight = new V3(), projV = new V3();
+  function projectTeeth() {
+    camRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
+    const w = innerWidth, h = innerHeight;
+    for (const T of teeth) {
+      T.face.copy(T.faceLocal); T.g.localToWorld(T.face);
+      projV.copy(T.face).project(camera);
+      T.sx = (projV.x + 1) / 2 * w; T.sy = (1 - projV.y) / 2 * h;
+      projV.copy(T.face).addScaledVector(camRight, 0.5 * T.s).project(camera);
+      T.sr = Math.max(18, Math.abs((projV.x + 1) / 2 * w - T.sx));
+    }
+  }
+  function toothAtPointer() {
+    if (!pointer.inside) return null;
+    let best = null, bestD = pointer.touch ? 1.45 : 1.2;
+    for (const T of teeth) {
+      if (T.health <= 0) continue;
+      const d = Math.hypot(pointer.x - T.sx, (pointer.y - T.sy) * 0.85) / T.sr;
+      if (d < bestD) { bestD = d; best = T; }
+    }
+    return best;
+  }
+
+  let brushLevel = 0;
+
+  // mouth: opens wide while food is on its way, chomps shut when it lands, breathes gently otherwise
+  const mouth = { o: 0, chompT: 0 };
+  function updateMouth(dt, time) {
+    mouth.chompT = Math.max(0, mouth.chompT - dt);
+    const target = mouth.chompT > 0 ? -0.35 : flights.length ? 1 : 0.06 * Math.sin(time * 0.9);
+    mouth.o += (target - mouth.o) * Math.min(1, dt * (target < mouth.o ? 16 : 7));
+    const op = Math.max(0, mouth.o), cl = Math.min(0, mouth.o);
+    lowerJaw.position.y = -0.42 * op - 0.06 * cl;
+    upperJaw.position.y = 0.16 * op + 0.02 * cl;
+    lipsGroup.scale.set(1 + 0.08 * op, 1 + 0.6 * op + 1.3 * cl, 1);
+    tongueLick = Math.max(0, tongueLick - dt * 2.5);
+    shapeTongue(time);
+  }
+  function updateGame(dt, scrub) {
+    elapsed += dt;
+    const prog = clamp(elapsed / ROUND_TIME, 0, 1);
+
+    spawnTimer -= dt;
+    if (spawnTimer <= 0) {
+      launchFood();
+      if (prog > 0.35 && Math.random() < 0.3) bonusFoodT = 0.35;   // sometimes two bites in a row
+      spawnTimer = lerp(3.3, 1.8, prog) * rand(0.8, 1.2);
+    }
+
+    if (bonusFoodT > 0) { bonusFoodT -= dt; if (bonusFoodT <= 0) launchFood(); }
+    if (refill > 0) { refill -= dt; paste = Math.min(100, paste + dt * 170); }
+
+    const T = toothAtPointer();
+    if (T && scrub > 0.0004) {
+      const power = paste > 0 ? 1 : 0.3;
+      brushTooth(T, scrub * BRUSH_POWER * power);
+      if (paste > 0) {
+        paste = Math.max(0, paste - scrub * PASTE_USE);
+        if (paste <= 0) {
+          pasteEmptyAt = elapsed;
+          say('Oops! More toothpaste, please. Tap the tube!', true);
+        }
+      }
+    }
+    if (paste <= 0 && refill <= 0 && elapsed - pasteEmptyAt > 12) { pasteEmptyAt = elapsed; say('Tap the tube for more toothpaste!'); }
+
+    for (const Tt of teeth) {
+      if (Tt.shieldT > 0) {
+        Tt.shieldT -= dt;
+        if (Tt.shieldT <= 0) { Tt.shieldT = 0; sfx.fizz(); }
+      }
+      if (Tt.health <= 0) continue;
+      // a properly brushed tooth (clean and shielded) slowly heals and its holes fill back in
+      if (Tt.shieldT > 0 && !Tt.germs.length && !Tt.foods.length && Tt.health < 100) {
+        const heal = Math.min(100 - Tt.health, HEAL_RATE * dt);
+        Tt.health += heal;
+        const open = Tt.holes.filter((h) => h && h.dmg > 0);
+        for (const h of open) h.dmg = Math.max(0, h.dmg - heal * 1.4 / open.length);
+        Tt.stage = Tt.health < 40 ? 2 : Tt.health < 75 ? 1 : 0;
+        Tt.healFx += dt;
+        if (Tt.healFx > 0.4) {
+          Tt.healFx = 0;
+          tmpV.copy(Tt.face).add(new V3(rand(-0.3, 0.3), rand(-0.1, 0.3), 0.3));
+          particle(pPlus, 0x5ff2a0, tmpV, new V3(0, 0.6, 0), 0.9, 0.09, { upright: true });
+        }
+        if (!told.heal && Tt.health < 90) { told.heal = true; say('Great brushing! That tooth is getting better!'); }
+      }
+      // sugary food calls germs faster, lets more of them in, and makes them do more damage
+      const sugar = toothSugar(Tt);
+      const maxGerms = sugar >= 0.7 ? MAX_GERMS : sugar >= 0.35 ? 2 : 1;
+      if (Tt.shieldT <= 0 && Tt.foods.length && Tt.germs.length < maxGerms) {
+        Tt.germTimer += dt * (0.25 + sugar);
+        const need = Tt.germs.length ? 4.5 : lerp(3.8, 2.6, prog);
+        if (Tt.germTimer >= need) { spawnGerm(Tt); Tt.germTimer = 0; }
+      } else if (!Tt.foods.length && !Tt.germs.length) Tt.germTimer = 0;
+
+      if (Tt.germs.length && Tt.shieldT <= 0) {
+        for (const g of Tt.germs) {
+          if (Tt.foods.length && g.age > 0.5) {
+            const f = Tt.foods.reduce((a, b) => (b.sugar > a.sugar ? b : a));   // sweetest first
+            f.amount -= 0.03 * dt * (0.5 + f.sugar);
+            g.size = Math.min(1.35, g.size + 0.04 * dt * f.sugar);
+            if (f.amount <= 0) removeFood(Tt, f, false);
+          }
+        }
+        const rate = Tt.foods.length ? 0.5 + 1.5 * sugar : 0.7;
+        Tt.health = Math.max(0, Tt.health - dt * Tt.germs.length * rate);
+        for (const g of Tt.germs) if (g.age > 0.5) Tt.holes[g.slot].dmg += dt * rate;
+        damageTooth(Tt);
+      }
+    }
+
+    if (elapsed >= ROUND_TIME) endGame();
+  }
+
+  const tmpC = new THREE.Color(), brushWorld = new V3(), localB = new V3();
+  function updateTeethVisuals(dt, time) {
+    for (const T of teeth) {
+      // enamel colour follows health
+      const h = T.health / 100;
+      if (h <= 0) tmpC.copy(C_DEAD);
+      else if (h > 0.5) tmpC.copy(C_YELLOW).lerp(C_HEALTHY, (h - 0.5) / 0.5);
+      else tmpC.copy(C_BROWN).lerp(C_YELLOW, h / 0.5);
+      T.mat.color.lerp(tmpC, Math.min(1, dt * 4));
+
+      // black holes dug by the germs; they stay after the germ is gone
+      for (const hole of T.holes) {
+        if (!hole) continue;
+        hole.bump = Math.max(0, hole.bump - dt * 5);
+        const r = hole.dmg > 0 ? Math.min(0.16, 0.03 * Math.min(1, hole.dmg / 2) + Math.sqrt(hole.dmg) * 0.014) : 0.001;
+        hole.grp.scale.setScalar(r * (1 + hole.bump * 0.3));
+      }
+
+      // a dead tooth wobbles, pops out of the gum, bounces on the tongue and disappears
+      if (T.fall && T.g.visible) {
+        const F = T.fall;
+        F.t += dt;
+        if (F.t < 0.45) T.shake = 1;
+        else {
+          if (!T.socket.visible) { T.socket.visible = true; scene.attach(T.g); sfx.pop(); }
+          F.v.y -= 9 * dt;
+          T.g.position.addScaledVector(F.v, dt);
+          T.g.rotateX(F.spin.x * dt); T.g.rotateZ(F.spin.z * dt);
+          if (!F.bounced && F.v.y < 0 && T.g.position.y < -1.2) {
+            F.bounced = true; F.v.y *= -0.45; F.v.x *= 0.6; F.v.z *= 0.6; F.spin.multiplyScalar(0.5);
+            sfx.clunk();
+          }
+        }
+        const k = clamp((2.3 - F.t) / 0.5, 0, 1);
+        T.g.scale.setScalar(Math.max(0.001, T.s * k));
+        if (k <= 0) T.g.visible = false;
+      }
+
+      // shake
+      T.shake = Math.max(0, T.shake - dt * 2.5);
+      T.inner.position.x = Math.sin(time * 55) * T.shake * 0.06;
+      T.brushedT = Math.max(0, T.brushedT - dt);
+      const squish = T.brushedT > 0 ? 1 + Math.sin(time * 40) * 0.025 : 1;
+      T.inner.scale.set(squish, 2 - squish, 1);
+
+      // shield bubble
+      const on = T.shieldT > 0;
+      let a = 0;
+      if (on) a = T.shieldT < 3 ? (Math.sin(time * 14) > 0 ? 0.9 : 0.25) : 0.85 + Math.sin(time * 3) * 0.15;
+      const sm = T.shieldMat.uniforms;
+      sm.uAlpha.value = lerp(sm.uAlpha.value, a, Math.min(1, dt * 10));
+      sm.uTime.value = time;
+      T.shield.visible = sm.uAlpha.value > 0.02;
+
+      // face
+      const dead = T.health <= 0;
+      const worried = T.germs.length > 0 || T.health < 40;
+      T.smile.visible = !dead && !worried && !T.foods.length;
+      T.oh.visible = !dead && !worried && T.foods.length > 0;
+      T.frown.visible = dead || worried;
+      T.blinkT -= dt;
+      if (T.blinkT < 0) T.blinkT = rand(2, 5);
+      const blink = dead ? 0.15 : T.blinkT < 0.12 ? 0.15 : 1;
+      if (brush.visible) {
+        localB.copy(brushWorld); T.g.worldToLocal(localB);
+        localB.sub(T.faceLocal); localB.z = 0;
+        if (localB.lengthSq() > 1e-4) localB.normalize().multiplyScalar(0.022);
+      } else localB.set(0, 0, 0);
+      for (const e of T.eyes) { e.scale.y = blink; e.position.x = localB.x; e.position.y = localB.y; }
+
+      // food wobble
+      for (const f of T.foods) {
+        f.squash = Math.max(0, f.squash - dt * 4);
+        f.hit = Math.max(0, f.hit - dt);
+        const k = 0.35 + 0.65 * clamp(f.amount, 0, 1);
+        const sq = Math.sin(f.squash * 9) * f.squash * 0.35;
+        const j = f.hit > 0 ? Math.sin(time * 60) * 0.02 : 0;
+        f.mesh.scale.set(1.3 * k * (1 + sq), 1.3 * k * (1 - sq), k * 0.8);
+        f.mesh.position.x = j;
+        // sugary food glitters, so kids can spot the worst offenders
+        if (f.sugar >= 0.9 && Math.random() < dt * 2.5) {
+          f.mesh.getWorldPosition(tmpV);
+          tmpV.x += rand(-0.12, 0.12); tmpV.y += rand(-0.1, 0.12); tmpV.z += 0.1;
+          particle(pStar, 0xffffff, tmpV, new V3(0, 0.25, 0), 0.6, 0.035, { spin: 6, sy: 2 });
+        }
+      }
+      // germs
+      for (const g of T.germs) {
+        g.t += dt; g.age += dt; g.hit = Math.max(0, g.hit - dt);
+        const pop = g.age < 0.45 ? 1 - Math.pow(1 - g.age / 0.45, 3) * Math.cos(g.age * 14) : 1;
+        const hpK = 0.75 + 0.25 * clamp(g.hp / GERM_HP, 0, 1);
+        g.grp.scale.setScalar(Math.max(0.001, pop * g.size * hpK));
+        g.inner.position.y = Math.abs(Math.sin(g.t * 5)) * 0.03;
+        g.inner.rotation.z = Math.sin(g.t * 3) * 0.2;
+        g.inner.position.x = g.hit > 0 ? Math.sin(g.t * 70) * 0.03 : 0;
+        g.mouth.scale.y = T.foods.length ? 0.25 + Math.abs(Math.sin(g.t * 9)) * 0.7 : 0.5;
+        g.inner.rotation.y = g.side * 0.55;             // look at the spot it is digging
+        // tools: pickaxe swings and strikes, drill pushes in and spins
+        const tool = g.tool;
+        tool.root.scale.setScalar(Math.max(0.001, pop));
+        if (g.age < 0.5) continue;
+        let impact = false;
+        if (g.kind === 'pick') {
+          const P = 0.62, p = (g.t % P) / P;
+          let ang;
+          if (p < 0.7) ang = 1.15 * Math.sin((p / 0.7) * Math.PI / 2);
+          else if (p < 0.8) ang = 1.15 * (1 - (p - 0.7) / 0.1);
+          else ang = 0;
+          tool.swing.rotation.z = ang;
+          if (g.lastP < 0.8 && p >= 0.8) impact = true;
+          g.lastP = p;
+        } else {
+          const push = 0.5 + 0.5 * Math.sin(g.t * 3);
+          tool.swing.position.y = -0.04 * (1 - push) + Math.sin(g.t * 90) * 0.004;
+          tool.swing.position.x = Math.sin(g.t * 77) * 0.003;
+          tool.bit.rotation.y += dt * 45;
+          g.drillT += dt;
+          if (push > 0.6 && g.drillT > 0.22) { g.drillT = 0; impact = true; }
+        }
+        if (impact) {
+          const hole = T.holes[g.slot];
+          hole.bump = 1;
+          hole.grp.getWorldPosition(tmpV); tmpV.z += 0.05;
+          for (let n = 0; n < 3; n++) {
+            particle(pSphere, n ? 0xfff5e6 : 0x1a0d10, tmpV,
+              new V3(rand(-1, 1), rand(0.2, 1.2), rand(0.3, 1)), rand(0.3, 0.5), rand(0.015, 0.028), { grav: -6 });
+          }
+          if (g.kind === 'pick') sfx.tink(); else sfx.drill();
+        }
+      }
+    }
+  }
+
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  let wob = 0;
+  function updateBrush(dt, scrub) {
+    if (!brush.visible) return;
+    ndc.set(pointer.x / innerWidth * 2 - 1, -(pointer.y / innerHeight) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    brushWorld.copy(ray.ray.origin).addScaledVector(ray.ray.direction, 3.2);
+    brush.position.copy(brushWorld);
+    brush.quaternion.copy(camera.quaternion);
+    const vx = clamp(pointer.vx / 40, -1, 1); pointer.vx = 0;
+    wob = lerp(wob, vx * 0.25, Math.min(1, dt * 18));
+    brushInner.rotation.z = -0.38 + wob;
+    const n = pasteBlobs.length, amt = paste / 100 * n;
+    pasteBlobs.forEach((m, i) => {
+      const k = clamp(amt - i, 0, 1);
+      m.visible = k > 0.02;
+      m.scale.set(1.2 * (0.4 + 0.6 * k), 0.95 * k, 1.1 * (0.4 + 0.6 * k));
+    });
+    // brushing sound follows scrub speed
+    const speed = scrub / Math.max(dt, 0.001);
+    brushLevel = lerp(brushLevel, toothAtPointer() ? clamp(speed * 0.5, 0, 1) : 0, Math.min(1, dt * 12));
+    if (brushGain && actx) {
+      brushGain.gain.setTargetAtTime(muted ? 0 : brushLevel * (paste > 0 ? 0.32 : 0.2), actx.currentTime, 0.04);
+      brushFilter.frequency.setTargetAtTime(2400 + brushLevel * 2200, actx.currentTime, 0.05);
+    }
+  }
+
+  /* ---------------- sizing: fit the whole arch on any screen ---------------- */
+  function resize() {
+    const w = innerWidth, h = innerHeight, asp = w / h;
+    if (!w || !h) return;                              // hidden frame or mid-rotation: keep the last good size
+    renderer.setSize(w, h, false);
+    camera.aspect = asp;
+    const want = 2 * Math.atan(Math.tan(42 * DEG) / asp) / DEG;
+    camera.fov = clamp(want, 50, 110);
+    // on tall screens step back until the back molars fit
+    const halfH = Math.atan(Math.tan(camera.fov / 2 * DEG) * asp);
+    const edgeX = RX * Math.sin(75 * DEG) + 0.55, edgeZ = CZ - RZ * Math.cos(75 * DEG) + 0.3;
+    camBase.z = Math.max(1.9, edgeZ + edgeX / Math.tan(halfH));
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', () => setTimeout(resize, 250));
+  resize();
+
+  /* ---------------- buttons ---------------- */
+  $('playBtn').addEventListener('click', startGame);
+  $('againBtn').addEventListener('click', startGame);
+  $('muteBtn').addEventListener('click', () => { initAudio(); setMuted(!muted); });
+  const tubeBtn = $('tubeBtn');
+  function doRefill() {
+    if (state !== 'play' || paste >= 99) return;
+    refill = 0.6;
+    tubeBtn.classList.remove('squeeze'); void tubeBtn.offsetWidth; tubeBtn.classList.add('squeeze');
+    sfx.squeeze();
+  }
+  tubeBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); initAudio(); doRefill(); });
+  let dwell = null;
+  tubeBtn.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') dwell = setTimeout(doRefill, 450); });
+  tubeBtn.addEventListener('pointerleave', () => clearTimeout(dwell));
+
+  document.addEventListener('visibilitychange', () => {
+    if (!actx) return;
+    if (document.hidden) actx.suspend(); else actx.resume();
+  });
+
+  /* ---------------- loop ---------------- */
+  const clock = new THREE.Clock();
+  let time = 0, hudT = 0;
+  // test hook: advance the simulation without waiting for real frames
+  window.__sparkle = { step(sec) { for (let t = 0; t < sec; t += 0.05) tick(0.05); }, teeth, kill(i) { teeth[i].health = 0; damageTooth(teeth[i]); }, get state() { return state; }, get paste() { return paste; } };
+  function frame() {
+    requestAnimationFrame(frame);
+    tick(Math.min(clock.getDelta(), 0.05));
+  }
+  function tick(dt) {
+    time += dt;
+    camera.position.set(camBase.x + Math.sin(time * 0.35) * 0.04, camBase.y + Math.sin(time * 0.5) * 0.02, camBase.z);
+    camera.lookAt(LOOK);
+    updateMouth(dt, time);
+    camera.updateMatrixWorld();
+    projectTeeth();
+
+    const scrub = Math.min(pointer.acc, 0.12); pointer.acc = 0;
+    updateBrush(dt, scrub);
+    if (state === 'play') updateGame(dt, scrub);
+    updateTeethVisuals(dt, time);
+    updateFlights(dt);
+    updateParticles(dt);
+
+    hudT -= dt;
+    if (state === 'play' && hudT <= 0) { updateHud(); hudT = 0.1; }
+
+    renderer.clear();
+    renderer.render(scene, camera);
+    renderer.clearDepth();
+    renderer.render(brushScene, camera);
+  }
+  frame();
+})();
+</script>
+</body>
+</html>
