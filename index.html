@@ -138,6 +138,7 @@
   .stat b{font-size:32px;line-height:1;font-variant-numeric:tabular-nums}
   .stat span{font-size:13px;color:var(--cream-dim);letter-spacing:.06em;text-transform:uppercase}
   .err{margin:0;color:var(--sun);font-weight:700}
+  .credit{margin:0;font:12px Verdana,Tahoma,sans-serif;color:var(--cream-dim);opacity:.8}
 
   @media (max-width:480px){
     .card{padding:20px 16px 18px;border-radius:26px;gap:13px}
@@ -238,6 +239,7 @@
       <div class="stat"><b id="statFood">0</b><span>Food cleaned</span></div>
     </div>
     <button id="againBtn" class="play"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/></svg>Again</button>
+    <p class="credit">Voices &amp; sounds: elevenlabs.io</p>
   </div>
 </div>
 
@@ -525,7 +527,7 @@
         for (const sx of [-1, 1]) { const e = new Mesh(sphere(0.035, 8), tm(c)); e.position.set(sx * 0.06, 0.19, 0); grp.add(e); }
         grp.userData.color = c;
         return grp; } },
-    { name: 'apple', sugar: 0.3, sticky: 0.45, weight: 0.9, color: 0xfff1c9, make() {
+    { name: 'apple', yum: 'an apple', sugar: 0.3, sticky: 0.45, weight: 0.9, color: 0xfff1c9, make() {
         const grp = new Group();
         const flesh = new Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.08, 18, 1, false, 0, Math.PI), tm(0xfff1c9));
         flesh.rotation.x = Math.PI / 2; grp.add(flesh);
@@ -533,7 +535,7 @@
         skin.rotation.z = -Math.PI / 2; grp.add(skin);
         for (const y of [-0.04, 0.04]) { const s = new Mesh(sphere(0.02, 6), tm(0x3b2012)); s.scale.set(0.7, 1.2, 0.6); s.position.set(0.05, y, 0.045); grp.add(s); }
         return grp; } },
-    { name: 'carrot', sugar: 0.12, sticky: 0.35, weight: 0.9, color: 0xff8c1a, make() {
+    { name: 'carrot', yum: 'a carrot', sugar: 0.12, sticky: 0.35, weight: 0.9, color: 0xff8c1a, make() {
         const grp = new Group();
         const c = new Mesh(new THREE.ConeGeometry(0.075, 0.32, 10), tm(0xff8c1a)); c.rotation.z = Math.PI / 2; grp.add(c);
         for (let i = -1; i <= 1; i++) {
@@ -541,14 +543,14 @@
           l.position.set(-0.2, i * 0.03, 0); l.rotation.z = Math.PI / 2 + i * 0.5; grp.add(l);
         }
         return grp; } },
-    { name: 'broccoli', sugar: 0.05, sticky: 0.4, weight: 0.8, color: 0x2f9e44, make() {
+    { name: 'broccoli', yum: 'broccoli', sugar: 0.05, sticky: 0.4, weight: 0.8, color: 0x2f9e44, make() {
         const grp = new Group();
         const st = new Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.16, 8), tm(0x9ad96a)); st.position.y = -0.09; grp.add(st);
         [[0, 0.04, 0.08], [-0.08, 0.0, 0.06], [0.08, 0.0, 0.065], [0, 0.1, 0.06]].forEach(([x, y, r]) => {
           const f = new Mesh(sphere(r, 10), tm(0x2f9e44)); f.position.set(x, y, 0); grp.add(f);
         });
         return grp; } },
-    { name: 'cheese', sugar: 0.0, sticky: 0.4, weight: 0.8, color: 0xffd23f, make() {
+    { name: 'cheese', yum: 'cheese', sugar: 0.0, sticky: 0.4, weight: 0.8, color: 0xffd23f, make() {
         const grp = new Group();
         const w = new Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.12, 10, 1, false, 0, 0.9), tm(0xffd23f));
         w.rotation.x = Math.PI / 2; w.position.set(-0.08, -0.1, 0); grp.add(w);
@@ -731,9 +733,28 @@
   }
 
   /* ---------------- sound ---------------- */
+  // ElevenLabs clips from assets/; each sound falls back to its synthesized version, and speech to the
+  // device voice, when a clip can't load (e.g. opened from file://)
+  const ASSET_V = 1;            // bump after replacing any file in assets/
+  const CLIP_VOL = 0.8;         // sound effect clips
+  const VOICE_VOL = 1;          // spoken clips
+  const CLIP_TRIM = {           // per-clip level trims, measured so the clips sit near the voice's loudness
+    'sfx-squeeze': 14, 'sfx-pop': 8, 'sfx-bonk': 6, 'sfx-splat': 6, 'sfx-ding': 3,
+    'sfx-whoosh': 0.5, 'sfx-drill': 0.5, 'sfx-fanfare': 0.7, 'sfx-germ': 0.7,
+  };
+  const BRUSH_TRIM = 3;         // the brushing loop
+  const TOOL_CLIP_GAP = 300;    // ms between germ pickaxe/drill clips, so they don't pile up
+  const CLIPS = [
+    'sfx-whoosh', 'sfx-splat', 'sfx-pop', 'sfx-clean', 'sfx-ding', 'sfx-germ', 'sfx-bonk', 'sfx-tink', 'sfx-drill',
+    'sfx-clunk', 'sfx-fizz', 'sfx-squeeze', 'sfx-fanfare', 'sfx-brush',
+    'say-start', 'say-end-3', 'say-end', 'say-sweets', 'say-apple', 'say-carrot', 'say-broccoli', 'say-cheese',
+    'say-germs', 'say-shield', 'say-healing', 'say-ouch', 'say-fell-out', 'say-paste-empty', 'say-paste-tap',
+  ];
+  const rawClips = {}, decoded = {}, clips = {};   // fetched bytes start loading now; decoding needs the AudioContext from the first tap
+  CLIPS.forEach((n) => { rawClips[n] = fetch('assets/' + n + '.mp3?v=' + ASSET_V).then((r) => r.ok ? r.arrayBuffer() : null).catch(() => null); });
   let muted = false;
   try { muted = localStorage.getItem('sparkle-smile-muted') === '1'; } catch (e) { /* storage unavailable */ }
-  let actx = null, master = null, brushGain = null, brushFilter = null, noiseBuf = null;
+  let actx = null, master = null, brushGain = null, brushFilter = null, brushSrc = null, noiseBuf = null;
   function initAudio() {
     try {
       if (!actx) {
@@ -743,15 +764,34 @@
         master = actx.createGain(); master.gain.value = muted ? 0 : 0.7; master.connect(actx.destination);
         noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
         const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-        const src = actx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+        brushSrc = actx.createBufferSource(); brushSrc.buffer = noiseBuf; brushSrc.loop = true;
         brushFilter = actx.createBiquadFilter(); brushFilter.type = 'bandpass'; brushFilter.frequency.value = 3000; brushFilter.Q.value = 0.9;
         brushGain = actx.createGain(); brushGain.gain.value = 0;
-        src.connect(brushFilter); brushFilter.connect(brushGain); brushGain.connect(master); src.start();
+        brushSrc.connect(brushFilter); brushFilter.connect(brushGain); brushGain.connect(master); brushSrc.start();
         // iOS unlock: play a silent buffer inside the tap
         const unlock = actx.createBufferSource(); unlock.buffer = actx.createBuffer(1, 1, 22050); unlock.connect(actx.destination); unlock.start(0);
+        CLIPS.forEach((n) => {
+          decoded[n] = rawClips[n].then((b) => b && new Promise((res, rej) => actx.decodeAudioData(b, res, rej)))
+            .then((buf) => { if (buf) { clips[n] = buf; if (n === 'sfx-brush') useBrushClip(buf); } return buf; }).catch(() => null);
+        });
       }
       if (actx.state === 'suspended') actx.resume();
     } catch (e) { actx = null; }
+  }
+  // swap the synthesized brushing noise for the recorded loop; the frame loop keeps driving brushGain
+  function useBrushClip(buf) {
+    const s = actx.createBufferSource(); s.buffer = buf; s.loop = true;
+    s.loopStart = 0.05; s.loopEnd = buf.duration - 0.05;   // skip the MP3 padding so the loop has no gap
+    const trim = actx.createGain(); trim.gain.value = BRUSH_TRIM;
+    s.connect(trim); trim.connect(brushGain); s.start();
+    try { brushSrc.stop(); } catch (e) { /* already stopped */ }
+    brushSrc = s;
+  }
+  function clip(name, vol) {    // plays a loaded clip; returns null if it isn't loaded so the caller can synthesize
+    const buf = clips[name]; if (!actx || !buf || muted) return null;
+    const s = actx.createBufferSource(), g = actx.createGain(); s.buffer = buf;
+    g.gain.value = (vol === undefined ? CLIP_VOL : vol) * (CLIP_TRIM[name] || 1);
+    s.connect(g); g.connect(master); s.start(); return s;
   }
   function tone(f, f2, type, dur, vol, delay) {
     if (!actx || muted) return;
@@ -774,31 +814,42 @@
   }
   // many germs dig at once; keep their tool noise from piling up
   let lastToolSound = 0;
-  function toolSoundOk() {
+  function toolSoundOk(gap) {
     const now = performance.now();
-    if (now - lastToolSound < 110) return false;
+    if (now - lastToolSound < gap) return false;
     lastToolSound = now; return true;
   }
+  function toolSound(name, synth) { if (clips[name]) { if (toolSoundOk(TOOL_CLIP_GAP)) clip(name); } else if (toolSoundOk(110)) synth(); }
   const sfx = {
-    whoosh() { noise(0.35, 0.12, 'bandpass', 500, 1600); },
-    splat() { noise(0.2, 0.45, 'lowpass', 1200, 200); tone(190, 70, 'sine', 0.16, 0.3); },
-    pop() { tone(520, 1500, 'sine', 0.12, 0.35); tone(900, 1900, 'triangle', 0.08, 0.12, 0.03); },
-    clean() { tone(1320, 1760, 'triangle', 0.12, 0.14); },
-    ding() { tone(1046, 0, 'triangle', 0.5, 0.22); tone(1568, 0, 'triangle', 0.55, 0.16, 0.09); tone(2093, 0, 'sine', 0.5, 0.08, 0.18); },
-    germ() { [0, 0.11, 0.2].forEach((d, i) => tone(280 + i * 50, 240 + i * 50, 'square', 0.08, 0.06, d)); },
-    bonk() { tone(230, 90, 'sine', 0.35, 0.4); tone(120, 60, 'triangle', 0.3, 0.2); },
-    tink() { if (toolSoundOk()) { tone(2100, 1700, 'triangle', 0.06, 0.05); noise(0.04, 0.05, 'highpass', 4000); } },
-    drill() { if (toolSoundOk()) tone(110, 140, 'sawtooth', 0.14, 0.025); },
-    clunk() { tone(150, 70, 'triangle', 0.22, 0.35); noise(0.12, 0.25, 'lowpass', 600, 150); },
-    fizz() { noise(0.3, 0.08, 'highpass', 3000, 6000); },
-    squeeze() { noise(0.45, 0.3, 'bandpass', 300, 1800); tone(200, 420, 'sine', 0.3, 0.12); },
-    fanfare() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0, 'triangle', 0.35, 0.22, i * 0.13)); tone(1046, 0, 'sine', 0.8, 0.12, 0.55); }
+    whoosh() { if (clip('sfx-whoosh')) return; noise(0.35, 0.12, 'bandpass', 500, 1600); },
+    splat() { if (clip('sfx-splat')) return; noise(0.2, 0.45, 'lowpass', 1200, 200); tone(190, 70, 'sine', 0.16, 0.3); },
+    pop() { if (clip('sfx-pop')) return; tone(520, 1500, 'sine', 0.12, 0.35); tone(900, 1900, 'triangle', 0.08, 0.12, 0.03); },
+    clean() { if (clip('sfx-clean')) return; tone(1320, 1760, 'triangle', 0.12, 0.14); },
+    ding() { if (clip('sfx-ding')) return; tone(1046, 0, 'triangle', 0.5, 0.22); tone(1568, 0, 'triangle', 0.55, 0.16, 0.09); tone(2093, 0, 'sine', 0.5, 0.08, 0.18); },
+    germ() { if (clip('sfx-germ')) return; [0, 0.11, 0.2].forEach((d, i) => tone(280 + i * 50, 240 + i * 50, 'square', 0.08, 0.06, d)); },
+    bonk() { if (clip('sfx-bonk')) return; tone(230, 90, 'sine', 0.35, 0.4); tone(120, 60, 'triangle', 0.3, 0.2); },
+    tink() { toolSound('sfx-tink', () => { tone(2100, 1700, 'triangle', 0.06, 0.05); noise(0.04, 0.05, 'highpass', 4000); }); },
+    drill() { toolSound('sfx-drill', () => tone(110, 140, 'sawtooth', 0.14, 0.025)); },
+    clunk() { if (clip('sfx-clunk')) return; tone(150, 70, 'triangle', 0.22, 0.35); noise(0.12, 0.25, 'lowpass', 600, 150); },
+    fizz() { if (clip('sfx-fizz')) return; noise(0.3, 0.08, 'highpass', 3000, 6000); },
+    squeeze() { if (clip('sfx-squeeze')) return; noise(0.45, 0.3, 'bandpass', 300, 1800); tone(200, 420, 'sine', 0.3, 0.12); },
+    fanfare() { if (clip('sfx-fanfare')) return; [523, 659, 784, 1046].forEach((f, i) => tone(f, 0, 'triangle', 0.35, 0.22, i * 0.13)); tone(1046, 0, 'sine', 0.8, 0.12, 0.55); }
   };
-  let voiceBusyUntil = 0;
-  function say(text, force) {
-    if (muted || !('speechSynthesis' in window)) return;
+  let voiceBusyUntil = 0, voiceSrc = null;
+  // spoken line: the recorded clip `name`, else the device voice reads `text`
+  function say(text, force, name) {
+    if (muted) return;
     const now = performance.now();
     if (!force && now < voiceBusyUntil) return;
+    if (voiceSrc) { try { voiceSrc.stop(); } catch (e) { /* already ended */ } voiceSrc = null; }
+    if ('speechSynthesis' in window) try { speechSynthesis.cancel(); } catch (e) { /* ignore */ }
+    if (name && !clips[name] && decoded[name]) {   // still decoding (the first line comes right after the first tap): wait for it
+      voiceBusyUntil = now + 2600;
+      decoded[name].then(() => { voiceBusyUntil = 0; say(text, true, clips[name] ? name : null); });
+      return;
+    }
+    if (name && (voiceSrc = clip(name, VOICE_VOL))) { voiceBusyUntil = now + voiceSrc.buffer.duration * 1000 + 600; return; }
+    if (!('speechSynthesis' in window)) return;
     try {
       const u = new SpeechSynthesisUtterance(text);
       u.rate = 1.0; u.pitch = 1.3; u.volume = 1;
@@ -914,7 +965,7 @@
     $('menu').hidden = true; $('end').hidden = true; $('hud').hidden = false;
     document.body.classList.add('playing');
     brush.visible = true;
-    say('Brush the food off the teeth!', true);
+    say('Brush the food off the teeth!', true, 'say-start');
   }
 
   function endGame() {
@@ -937,7 +988,7 @@
     alive.forEach((T) => sparkle(T.face, 6));
     setTimeout(() => { $('hud').hidden = true; $('end').hidden = false; $('againBtn').focus({ preventScroll: true }); }, 700);
     sfx.fanfare();
-    say(stars === 3 ? 'Wow! Super sparkly teeth!' : 'Great brushing!', true);
+    say(stars === 3 ? 'Wow! Super sparkly teeth!' : 'Great brushing!', true, stars === 3 ? 'say-end-3' : 'say-end');
   }
 
   function launchFood() {
@@ -995,8 +1046,8 @@
         burst(f.p2, f.mesh.userData.color || f.type.color, 5, 1.2, 0.035, { grav: -4 });
         sfx.splat();
         mouth.chompT = 0.22; tongueLick = 1;
-        if (f.type.sugar >= 0.9 && !told.sweet) { told.sweet = true; say('Uh oh, sweets! Germs love sugar!'); }
-        else if (f.type.sugar <= 0.3 && !told.healthy) { told.healthy = true; say('Yum, a ' + f.type.name + '! Germs don’t like healthy food much.'); }
+        if (f.type.sugar >= 0.9 && !told.sweet) { told.sweet = true; say('Uh oh, sweets! Germs love sugar!', false, 'say-sweets'); }
+        else if (f.type.sugar <= 0.3 && !told.healthy) { told.healthy = true; say('Yum, ' + f.type.yum + '! Germs don’t like healthy food much.', false, 'say-' + f.type.name); }
       }
     }
   }
@@ -1011,7 +1062,7 @@
     armGerm(T, g);
     T.germs.push(g);
     sfx.germ();
-    if (!told.germ) { told.germ = true; say('Oh no, germs! Brush them away!', true); }
+    if (!told.germ) { told.germ = true; say('Oh no, germs! Brush them away!', true, 'say-germs'); }
   }
 
   function killGerm(T, g, zapped) {
@@ -1044,7 +1095,7 @@
     if (was < 4) {
       sparkle(T.face, 10);
       sfx.ding();
-      if (!told.shield) { told.shield = true; say('Sparkly clean! That tooth has a bubble shield!'); }
+      if (!told.shield) { told.shield = true; say('Sparkly clean! That tooth has a bubble shield!', false, 'say-shield'); }
     }
   }
 
@@ -1081,8 +1132,8 @@
           v: new V3(inward * rand(0.2, 0.5), T.lower ? 2.4 : 0, rand(1.1, 1.5)),
           spin: new V3((T.lower ? -1 : 1) * rand(2.5, 4), 0, inward * rand(1, 3))
         };
-        say('Oh no! The tooth fell out!', true);
-      } else if (!told.ouch) { told.ouch = true; say('Ouch! Help that tooth!'); }
+        say('Oh no! The tooth fell out!', true, 'say-fell-out');
+      } else if (!told.ouch) { told.ouch = true; say('Ouch! Help that tooth!', false, 'say-ouch'); }
     }
   }
 
@@ -1147,11 +1198,11 @@
         paste = Math.max(0, paste - scrub * PASTE_USE);
         if (paste <= 0) {
           pasteEmptyAt = elapsed;
-          say('Oops! More toothpaste, please. Tap the tube!', true);
+          say('Oops! More toothpaste, please. Tap the tube!', true, 'say-paste-empty');
         }
       }
     }
-    if (paste <= 0 && refill <= 0 && elapsed - pasteEmptyAt > 12) { pasteEmptyAt = elapsed; say('Tap the tube for more toothpaste!'); }
+    if (paste <= 0 && refill <= 0 && elapsed - pasteEmptyAt > 12) { pasteEmptyAt = elapsed; say('Tap the tube for more toothpaste!', false, 'say-paste-tap'); }
 
     for (const Tt of teeth) {
       if (Tt.shieldT > 0) {
@@ -1172,7 +1223,7 @@
           tmpV.copy(Tt.face).add(new V3(rand(-0.3, 0.3), rand(-0.1, 0.3), 0.3));
           particle(pPlus, 0x5ff2a0, tmpV, new V3(0, 0.6, 0), 0.9, 0.09, { upright: true });
         }
-        if (!told.heal && Tt.health < 90) { told.heal = true; say('Great brushing! That tooth is getting better!'); }
+        if (!told.heal && Tt.health < 90) { told.heal = true; say('Great brushing! That tooth is getting better!', false, 'say-healing'); }
       }
       // sugary food calls germs faster, lets more of them in, and makes them do more damage
       const sugar = toothSugar(Tt);
