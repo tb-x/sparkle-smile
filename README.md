@@ -25,6 +25,12 @@ Then open http://localhost:5173.
 
 On iPhone, turn the silent switch off to hear the sounds and the voice. Opened straight from disk the game still works, but the browser won't load the clips, so you hear the built-in synthesized sounds and the device's own voice instead.
 
+## Play offline (add to Home Screen)
+
+On iPhone or iPad, open the game in Safari, tap **Share → Add to Home Screen**, then open it once from the new icon while online. After that it starts full screen and works without internet. Changes I publish arrive on their own: the next online launch downloads them and the one after shows them.
+
+(How: `manifest.webmanifest` gives the icon and full-screen mode; `sw.js`, a service worker, keeps a copy of every file the game uses, including three.js, the font and the sound clips.)
+
 ## Tuning
 
 The difficulty knobs are at the top of the script: `ROUND_TIME`, `SHIELD_TIME`, `HEAL_RATE`, `BRUSH_POWER`, `PASTE_USE`. Each food's `sugar` and `sticky` values are in `FOOD_TYPES`.
