@@ -10,6 +10,7 @@ You look out from inside a mouth. Food flies in and sticks to the teeth. If it s
 - Toothpaste runs out. Tap the tube to refill it.
 - A tooth with too many holes falls out.
 - A round lasts 2 minutes, like real brushing, and ends with 1 to 3 stars.
+- 🏠 in the corner goes back to the list of all games.
 
 **Play:** https://tb-x.github.io/sparkle-smile/
 
