@@ -2,11 +2,12 @@
    The first visit caches the page shell below plus every file the page loaded: index.html posts that list once it
    has loaded (fonts, three.js, sound clips). After that everything is served from the cache, so the game starts
    without internet. Pages and unversioned files are refreshed in the background when online, so a change shows up
-   on the launch after next; files that never change at their URL (?v=N, pinned CDN files) are fetched once. All
+   on the launch after next; files that never change at their URL (?v=N, pinned CDN files) are fetched once, and the
+   ?v= files a refreshed page links are fetched with it, so the launch that first shows it works offline too. All
    tb-x games share one cache storage, so each game's caches carry its own prefix.
    Bump CACHE only when this file's logic changes; activate deletes this game's older caches. */
 const PREFIX = 'sparkle-smile-';
-const CACHE = PREFIX + 'v3';
+const CACHE = PREFIX + 'v4';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-180.png', 'icon-512.png'];
 const mine = (url) => url.startsWith('http');   // this game's pages only ever load their own files and CDN files
 
@@ -37,14 +38,18 @@ const keep = (res, url) => {
   return res.type === 'opaque' && u.origin !== self.location.origin && !CORS.has(u.hostname);
 };
 
-// drop the copies of a file kept under another query (each ?v= bump is a new cache key, and a game's sound clips
-// can be tens of MB); pages are left alone, so the shell's './' stays as the offline fallback
+// drop the older copies of a file (each ?v= bump is a new cache key, and a game's sound clips can be tens of MB).
+// Only lower ?v= numbers go: a page still running the old version may fetch its files again, and that mustn't
+// delete the new ones fetched ahead for the next launch. Other queries replace each other. Pages are left alone,
+// so the shell's './' stays as the offline fallback.
+const ver = (u) => (u.searchParams.has('v') ? Number(u.searchParams.get('v')) : NaN);
 async function prune(cache, url) {
   const u = new URL(url);
   if (/(\/|\.html)$/.test(u.pathname)) return;
   for (const req of await cache.keys(url, { ignoreSearch: true, ignoreVary: true })) {
     const r = new URL(req.url);
-    if (r.origin === u.origin && r.pathname === u.pathname && r.search !== u.search) await cache.delete(req, { ignoreVary: true });
+    if (r.origin !== u.origin || r.pathname !== u.pathname || r.search === u.search) continue;
+    if (isNaN(ver(r)) || isNaN(ver(u)) || ver(r) < ver(u)) await cache.delete(req, { ignoreVary: true });
   }
 }
 
@@ -54,7 +59,7 @@ async function save(cache, req, res) {
 }
 
 async function store(cache, url) {
-  if (await cache.match(url, { ignoreVary: true })) return;
+  if (await cache.match(url, { ignoreVary: true })) return prune(cache, url);   // (clears copies an old page put back)
   try {
     const res = await fetch(url, { mode: 'cors', cache: 'no-cache' }).catch(() => fetch(url, { mode: 'no-cors', cache: 'no-cache' }));
     if (keep(res, url)) await save(cache, url, res);
@@ -69,6 +74,14 @@ async function storeFonts(cache) {
     const css = await (await cache.match(req)).text().catch(() => '');
     for (const m of css.matchAll(/url\((https:[^)]+)\)/g)) await store(cache, m[1]);
   }
+}
+
+// the ?v= files a freshly downloaded page links (its styles, scripts and import map), so the launch that first shows
+// it doesn't need the network; files named in script (assets/…?v=${ASSET_V}) aren't seen and come when first used
+async function storeLinked(cache, page) {
+  const html = await page.text();
+  const urls = [...html.matchAll(/["'(]([^"'()\s<>`]+\?v=\d+)["')]/g)].map((m) => new URL(m[1], page.url).href);
+  await Promise.all(urls.filter((u) => u.startsWith(self.location.origin + '/')).map((u) => store(cache, u)));
 }
 
 self.addEventListener('message', (e) => {   // { cache: [urls] } from the page: everything it loaded
@@ -86,7 +99,10 @@ self.addEventListener('fetch', (e) => {
     // (the refresh always asks the server, so the browser's own cache can't hand back a stale copy: a local server
     // sends no caching rules, and a page would otherwise stay old for days)
     const net = fetch(nav ? req.url : req, { cache: 'no-cache' }).then((res) => {
-      if (keep(res, req.url)) e.waitUntil(save(cache, req, res.clone()).catch(() => {}));
+      if (keep(res, req.url)) {
+        const copy = res.clone(), page = nav && res.clone();
+        e.waitUntil(save(cache, req, copy).then(() => page && storeLinked(cache, page)).catch(() => {}));
+      }
       return res;
     });
     if (hit) { e.waitUntil(net.catch(() => {})); return hit; }   // cached: answer now, refresh in the background
