@@ -5,9 +5,15 @@
    on the launch after next; files that never change at their URL (?v=N, pinned CDN files) are fetched once, and the
    ?v= files a refreshed page links are fetched with it, so the launch that first shows it works offline too. All
    tb-x games share one cache storage, so each game's caches carry its own prefix.
+   On a development server (this computer, *.localhost / *.test, or the laptop's address on the home network) it's the
+   other way round: everything comes from the server first and the cache is only the fallback when the server is
+   stopped, so an edit shows on the next reload and offline still works.
    Bump CACHE only when this file's logic changes; activate deletes this game's older caches. */
 const PREFIX = 'sparkle-smile-';
-const CACHE = PREFIX + 'v4';
+const CACHE = PREFIX + 'v5';
+const HOST = self.location.hostname;
+const DEV = HOST === 'localhost' || HOST === '127.0.0.1' || HOST === '[::1]' || HOST.endsWith('.localhost') || HOST.endsWith('.test')
+  || /^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\./.test(HOST);
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-180.png', 'icon-512.png'];
 const mine = (url) => url.startsWith('http');   // this game's pages only ever load their own files and CDN files
 
@@ -95,7 +101,7 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(caches.open(CACHE).then(async (cache) => {
     const nav = req.mode === 'navigate';
     const hit = await cache.match(req, { ignoreSearch: nav, ignoreVary: true });
-    if (hit && !nav && fixed(req.url)) return hit;   // can't have changed: no need to ask the server
+    if (hit && !nav && !DEV && fixed(req.url)) return hit;   // can't have changed: no need to ask the server
     // (the refresh always asks the server, so the browser's own cache can't hand back a stale copy: a local server
     // sends no caching rules, and a page would otherwise stay old for days)
     const net = fetch(nav ? req.url : req, { cache: 'no-cache' }).then((res) => {
@@ -105,6 +111,7 @@ self.addEventListener('fetch', (e) => {
       }
       return res;
     });
+    if (DEV) return net.catch(async () => hit || (nav && await cache.match('./')) || Response.error());   // dev: server first
     if (hit) { e.waitUntil(net.catch(() => {})); return hit; }   // cached: answer now, refresh in the background
     return net.catch(async () => (nav && await cache.match('./')) || Response.error());
   }));
